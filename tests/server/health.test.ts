@@ -103,3 +103,94 @@ test("isHealthRequest matches the path for any method and ignores the query", ()
   assert.equal(isHealthRequest({ url: "" }), false);
   assert.equal(isHealthRequest({ url: undefined }), false);
 });
+
+type Probe = { status: number; text: string; handled: boolean };
+
+async function probeWithCheck(method: string, path: string, check: () => unknown | Promise<unknown>): Promise<Probe> {
+  let handled = false;
+  const server = http.createServer(async (req, res) => {
+    handled = await healthHandler(req, res, check);
+    if (!handled) {
+      res.writeHead(200);
+      res.end("app route");
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  try {
+    const reply = await new Promise<{ status: number; text: string }>((resolve, reject) => {
+      const req = http.request({ host: "127.0.0.1", port, method, path }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, text: Buffer.concat(chunks).toString() }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    return { ...reply, handled };
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
+test("healthHandler without a check stays synchronous and returns a boolean", () => {
+  const fakeRes = { writeHead: () => {}, end: () => {} } as unknown as http.ServerResponse;
+  const result = healthHandler({ url: "/api/health", method: "GET" }, fakeRes);
+  assert.equal(result, true);
+  assert.equal(typeof result, "boolean");
+});
+
+test("healthHandler with a check returns a Promise<boolean>", async () => {
+  const fakeRes = { writeHead: () => {}, end: () => {} } as unknown as http.ServerResponse;
+  const result = healthHandler({ url: "/api/health", method: "GET" }, fakeRes, () => {});
+  assert.ok(result instanceof Promise);
+  assert.equal(await result, true);
+  assert.equal(await healthHandler({ url: "/other", method: "GET" }, fakeRes, () => {}), false);
+});
+
+test("a passing check (sync or async) answers 200 {ok:true} on GET and HEAD", async () => {
+  for (const check of [() => 1, async () => {}]) {
+    const get = await probeWithCheck("GET", "/api/health", check);
+    assert.equal(get.status, 200);
+    assert.deepEqual(JSON.parse(get.text), { ok: true });
+    assert.equal(get.handled, true);
+    const head = await probeWithCheck("HEAD", "/api/health", check);
+    assert.equal(head.status, 200);
+    assert.equal(head.text, "");
+  }
+});
+
+test("a throwing or rejecting check answers 503 {ok:false} and leaks nothing", async () => {
+  const secret = "connection refused postgres://user:hunter2@db";
+  const checks = [
+    () => {
+      throw new Error(secret);
+    },
+    () => Promise.reject(new Error(secret)),
+  ];
+  for (const check of checks) {
+    const get = await probeWithCheck("GET", "/api/health", check);
+    assert.equal(get.status, 503);
+    assert.equal(get.text, '{"ok":false}');
+    assert.equal(get.handled, true);
+    const head = await probeWithCheck("HEAD", "/api/health", check);
+    assert.equal(head.status, 503);
+    assert.equal(head.text, "");
+  }
+});
+
+test("the check does not run for other methods (405) or other paths (false)", async () => {
+  let calls = 0;
+  const check = () => {
+    calls += 1;
+    throw new Error("must not run");
+  };
+  const post = await probeWithCheck("POST", "/api/health", check);
+  assert.equal(post.status, 405);
+  assert.equal(post.handled, true);
+  const other = await probeWithCheck("GET", "/api/other", check);
+  assert.equal(other.text, "app route");
+  assert.equal(other.handled, false);
+  assert.equal(calls, 0);
+});

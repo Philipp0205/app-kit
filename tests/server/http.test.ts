@@ -42,8 +42,11 @@ async function harness(): Promise<Harness> {
         const body = await readJson(req, max ? { max: Number(max) } : undefined);
         sendJson(res, 200, { got: body });
       } else if (url.pathname === "/raw") {
-        const buffer = await readBody(req, Number(url.searchParams.get("max") ?? 10));
+        const message = url.searchParams.get("message");
+        const buffer = await readBody(req, Number(url.searchParams.get("max") ?? 10), message ? { message } : undefined);
         sendJson(res, 200, { length: buffer.length, text: buffer.toString("utf8") });
+      } else if (url.pathname === "/undefined") {
+        sendJson(res, 200, undefined);
       } else if (url.pathname === "/http-error") {
         throw new HttpError(404, "no such thing", "missing");
       } else if (url.pathname === "/unknown-error") {
@@ -212,6 +215,24 @@ test("readBody returns the exact bytes at the cap and rejects one byte over", ()
     assert.deepEqual(JSON.parse(ok.text), { length: 10, text: "0123456789" });
     const over = await h.request("POST", "/raw?max=10", "0123456789A");
     assert.equal(over.status, 413);
+  }));
+
+test("sendJson with an undefined body sends the JSON null", () =>
+  withServer(async (h) => {
+    const r = await h.request("GET", "/undefined");
+    assert.equal(r.status, 200);
+    assert.equal(r.text, "null");
+    assert.equal(Number(r.headers["content-length"]), 4);
+  }));
+
+test("readBody: the 413 message is configurable and defaults to 'body too large'", () =>
+  withServer(async (h) => {
+    const custom = await h.request("POST", "/raw?max=5&message=too%20big%20for%20here", "0123456789");
+    assert.equal(custom.status, 413);
+    assert.deepEqual(JSON.parse(custom.text), { error: "too big for here" });
+    const fallback = await h.request("POST", "/raw?max=5", "0123456789");
+    assert.equal(fallback.status, 413);
+    assert.deepEqual(JSON.parse(fallback.text), { error: "body too large" });
   }));
 
 test("sendJson sends the shared security headers and a JSON content type", () =>
