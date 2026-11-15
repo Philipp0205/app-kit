@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 (unreleased)
+
+Patch. Additive. Fixes gaps found while adopting 0.2.0. No names or APIs change.
+
+- Sheet z-order: `.ak-sheet-layer` now has its own `z-index` (40), so an open sheet paints above the tab bar (20) and its Done / Send taps are no longer eaten. The toast (60) stays on top. New tokens `--ak-z-tabbar`, `--ak-z-sheet-layer`, `--ak-z-scrim`, `--ak-z-sheet`, `--ak-z-toast`. Apps can drop their own `.ak-sheet-layer { z-index: 31 }` workaround.
+- Light contrast: `--ak-muted` `#8e8e93` -> `#636366` (3.26:1 on white, now 5.99:1), `--ak-danger` `#ff3b30` -> `#c0281f` (3.55:1, now 5.89:1). Both reach 4.5:1 on every light surface token.
+- Dark contrast: `--ak-muted` `#8e8e93` -> `#a6a6aa` and `--ak-danger` `#ff453a` -> `#ff7f77`, so muted and danger text reach 4.5:1 on `--ak-surface-3` too. This is also what makes the error toast text pass on `--ak-surface-2` in both schemes, so no toast-only colour was needed.
+- Dark accent: `--ak-accent` `#ff2d78` -> `#e3166b` and `--ak-accent-strong` `#e0115f` -> `#c40e52`, so white accent ink reaches 4.5:1 (it was 3.56:1). Still Hangry pink. `--ak-accent-2` is unchanged. The install prompt's dark fallback colour follows.
+- `AppKit.tabbar`: the badge now has `role="img"` and an `aria-label` of `"{text} {badgeLabel}"` for a count, for example `"3 new"` and `"99+ new"`. Custom text such as `"new"` is the label as it is. New option `badgeLabel` (default `'new'`). The label is set on create and refreshed by `update()`. The visible text is unchanged.
+- `AppKit.installPrompt`: new option `iosNonSafari: 'open-in-safari' | 'share-steps'`. The default is `'open-in-safari'`, as before. `'share-steps'` shows the Share steps in iOS Chrome, Firefox, Edge and in-app browsers.
+- Tests: a WCAG contrast test over the tokens in both schemes (and the toast text), a z-order test for the sheet layer, tab bar and toast, badge aria tests, and `iosNonSafari` tests.
+
 ## 0.2.0 (2026-11-15)
 
 Minor and additive. Nothing from 0.1.0 changes its name or API.

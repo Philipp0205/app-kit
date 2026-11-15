@@ -40,12 +40,16 @@ Load order in the page head:
 
 **Tokens.** `ak-tokens.css` defines `--ak-bg`, `--ak-text`, `--ak-muted`, `--ak-surface` (and `-2`, `-3`), `--ak-hairline`, `--ak-danger`, type (`--ak-fs-*`), space (`--ak-s1` to `--ak-s5`), radii (`--ak-radius-*`), chrome (`--ak-tab`, `--ak-phone`) and motion. Dark is the default. On a light phone only the colours change. To force a scheme, set `<html data-ak-scheme="dark">` or `"light"`. That wins over the phone setting. It also defines `--ak-safe-*`, so it works without `app-kit.css`.
 
+**Stacking.** The chrome z-order is a token set: `--ak-z-tabbar` (20) < `--ak-z-sheet-layer` (40) < `--ak-z-toast` (60). Inside the sheet layer the scrim (`--ak-z-scrim`, 30) sits under the sheet (`--ak-z-sheet`, 31). The layer has its own z-index, so an open sheet covers the tab bar. Apps no longer need their own `.ak-sheet-layer { z-index }` rule. Keep any app fixed bars below `--ak-z-sheet-layer`.
+
+**Contrast.** Muted, danger and accent text reach WCAG AA (4.5:1) on the page surfaces in both schemes, and the error toast too. A test checks this.
+
 **Accent and font.** Set these after the kit CSS. Nothing else needs to change:
 
     :root {
-      --ak-accent: #ff2d78;         /* main accent */
+      --ak-accent: #e3166b;         /* main accent */
       --ak-accent-2: #ff4d8d;       /* focus ring */
-      --ak-accent-strong: #e0115f;  /* deeper accent */
+      --ak-accent-strong: #c40e52;  /* deeper accent */
       --ak-accent-ink: #ffffff;     /* text on an accent fill */
       --ak-font: Inter, system-ui, sans-serif;
       --ak-font-article: Georgia, serif;   /* Extrablatt, for long text */
@@ -66,7 +70,7 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
 - `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
 - `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open.
 - `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
-- `AppKit.tabbar({ tabs, active, onSelect, badge })` returns `{ el, update }`. The kit does no routing.
+- `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is.
 - `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
 
 **Server pages (Extrablatt Kindle, legal, billing).** Include `ak-tokens.css` and `ak-components.css` only. No JS is needed. Add `class="eink"` to `<html>` for e-ink.
@@ -168,6 +172,7 @@ Extrablatt has no install prompt today. To add one, include `install-prompt.css`
 - `dismiss`: `'session'` (default) or `{ days: n }`.
 - `shouldShow`: a function. Return false to hold the banner back.
 - `mount`: the element to prepend to (default `document.body`).
+- `iosNonSafari`: `'open-in-safari'` (default) or `'share-steps'`. Other iOS browsers (Chrome, Firefox, Edge, in-app) show the "open in Safari" hint by default. With `'share-steps'` they show the same Share / Add to Home Screen steps as Safari. Safari is unchanged.
 - Text: `title`, `text`, `installLabel`, `closeLabel`, `iosShareStep`, `iosAddStep`, `iosSafariHint`, `genericHint`.
 - `show()` forces the banner even if it was closed. It never shows when the app is installed.
 - `hide()` closes the banner and records it as set by `dismiss`.

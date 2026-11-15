@@ -149,6 +149,62 @@ test('ios outside Safari shows the open-in-Safari hint, not the steps', function
   });
 });
 
+function assertSteps(node) {
+  assert.equal(node.getAttribute('data-variant'), 'ios');
+  var steps = node.querySelector('ol.ak-ip-steps');
+  assert.ok(steps);
+  assert.equal(steps.children.length, 2);
+  assert.match(steps.children[0].textContent, /Tap Share/);
+  assert.match(steps.children[1].textContent, /Add to Home Screen/);
+  assert.equal(node.querySelector('.ak-ip-hint'), null);
+}
+
+function assertHint(node) {
+  assert.equal(node.getAttribute('data-variant'), 'ios');
+  assert.equal(node.querySelector('ol'), null);
+  assert.equal(node.querySelector('.ak-ip-hint').textContent, 'Open this page in Safari to install Hangry.');
+}
+
+test('iosNonSafari: default and open-in-safari keep the hint in iPhone Chrome', function () {
+  [{}, { iosNonSafari: 'open-in-safari' }].forEach(function (extra) {
+    var env = loaded({ userAgent: IPHONE_CHROME });
+    env.window.AppKit.installPrompt.init(Object.assign({ appName: 'Hangry' }, extra));
+    assertHint(banner(env));
+  });
+});
+
+test('iosNonSafari: an unknown value falls back to the hint', function () {
+  var env = loaded({ userAgent: IPHONE_CHROME });
+  env.window.AppKit.installPrompt.init({ appName: 'Hangry', iosNonSafari: 'nope' });
+  assertHint(banner(env));
+});
+
+test('iosNonSafari: share-steps shows the steps, not the hint, in iPhone Chrome, Firefox and Edge', function () {
+  [IPHONE_CHROME, IPHONE_FIREFOX, IPHONE_EDGE].forEach(function (ua) {
+    var env = loaded({ userAgent: ua });
+    env.window.AppKit.installPrompt.init({ appName: 'Hangry', iosNonSafari: 'share-steps' });
+    var node = banner(env);
+    assertSteps(node);
+    assert.match(node.querySelector('.ak-ip-share').innerHTML, /<svg/);
+    assert.doesNotMatch(node.textContent, /Open this page in Safari/);
+  });
+});
+
+test('iosNonSafari: Safari shows the steps with either value', function () {
+  [{}, { iosNonSafari: 'open-in-safari' }, { iosNonSafari: 'share-steps' }].forEach(function (extra) {
+    var env = loaded({ userAgent: IPHONE_SAFARI });
+    env.window.AppKit.installPrompt.init(Object.assign({ appName: 'Hangry' }, extra));
+    assertSteps(banner(env));
+  });
+});
+
+test('iosNonSafari: does not change the generic variant on a non-iOS browser', function () {
+  var env = loaded();
+  env.window.AppKit.installPrompt.init({ iosNonSafari: 'share-steps' });
+  assert.equal(banner(env).getAttribute('data-variant'), 'generic');
+  assert.equal(banner(env).querySelector('ol'), null);
+});
+
 test('iosSafariHint can be overridden', function () {
   var env = loaded({ userAgent: IPHONE_CHROME });
   env.window.AppKit.installPrompt.init({ iosSafariHint: 'Use Safari please' });
