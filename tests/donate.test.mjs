@@ -31,6 +31,8 @@ test('donate: accepts paypal.me and www.paypal.com https urls', function () {
   [
     'https://paypal.me/Name',
     'https://PayPal.Me/name',
+    'https://www.paypal.me/name',
+    'https://WWW.PayPal.Me/name',
     'https://www.paypal.com/donate/?hosted_button_id=x'
   ].forEach(function (url) {
     assert.equal(donate.button({ url: url }).tagName, 'BUTTON', url);
@@ -42,8 +44,8 @@ test('donate: rejects every other url', function () {
   var donate = env.window.AppKit.donate;
   [
     'http://paypal.me/name',
+    'http://www.paypal.me/name',
     'https://paypal.com/name',
-    'https://www.paypal.me/name',
     'https://example.com/',
     'https://paypal.me.evil.com/name',
     'javascript:alert(1)',
@@ -81,6 +83,17 @@ test('donate: amount chips link to {url}/{amount}EUR with one trailing slash str
     assert.match(c.getAttribute('rel'), /\bnoopener\b/);
     assert.match(c.getAttribute('rel'), /\bnoreferrer\b/);
   });
+});
+
+test('donate: amount chips work for www.paypal.me with and without a trailing slash', function () {
+  var env = donateEnv();
+  open(env, { url: 'https://www.paypal.me/name/', amounts: [5] });
+  assert.equal(env.document.querySelector('.ak-chip').getAttribute('href'), 'https://www.paypal.me/name/5EUR');
+  assert.equal(env.document.querySelector('.ak-sheet-dock').querySelector('.ak-btn').getAttribute('href'), 'https://www.paypal.me/name/');
+
+  var env2 = donateEnv();
+  open(env2, { url: 'https://www.paypal.me/name', amounts: [5] });
+  assert.equal(env2.document.querySelector('.ak-chip').getAttribute('href'), 'https://www.paypal.me/name/5EUR');
 });
 
 test('donate: a url without a trailing slash gets the same chip link', function () {

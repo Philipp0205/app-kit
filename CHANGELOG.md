@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 (unreleased)
+
+Patch. Additive. Fixes two gaps found while adopting 0.4.0 in free-now. No names or APIs change.
+
+- `healthHandler`: the status variable is typed `200 | 503`, so TypeScript no longer narrows it to literal `200` and fails when an app type-checks the whole `src/` including the kit.
+- `AppKit.donate`: the url allowlist now also accepts `www.paypal.me` (https only), so a `https://www.paypal.me/<name>` link renders. Amount chips work for that host the same way. `paypal.me` and `www.paypal.com` are unchanged.
+
 ## 0.4.0 (2026-11-15)
 
 Minor and additive: the auth module and a voluntary PayPal donate component. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Design and store contract: `docs/auth.md`.
