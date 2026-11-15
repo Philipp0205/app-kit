@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" class="ak-base ak-status-strip" data-ak-scheme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>app-kit design system</title>
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../frontend/ak-tokens.css">
+<link rel="stylesheet" href="../frontend/ak-base.css">
+<link rel="stylesheet" href="../frontend/ak-components.css">
+<link rel="stylesheet" href="../frontend/app-kit.css">
+<style>
+  /* Demo layout only. Everything else is the kit. */
+  .demo-phone {
+    width: min(var(--ak-phone), 100%);
+    margin: 0 auto;
+    padding: var(--ak-safe-top) 0 calc(var(--ak-tab) + 24px);
+  }
+  .demo-section { padding: 20px 16px 0; }
+  .demo-h { margin: 0 0 12px; color: var(--ak-muted); font-size: var(--ak-fs-sm); font-weight: var(--ak-fw); letter-spacing: 0.04em; text-transform: uppercase; }
+  .demo-stack { display: flex; flex-direction: column; gap: 12px; }
+  .demo-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .demo-controls { position: sticky; top: 0; z-index: 10; padding: 8px 16px; background: var(--ak-bg); border-bottom: 1px solid var(--ak-hairline); }
+  .demo-controls .demo-wrap { margin-bottom: 6px; }
+  .demo-label { color: var(--ak-muted); font-size: var(--ak-fs-sm); min-width: 52px; }
+  .demo-controls .ak-chip { min-height: 36px; padding: 0 12px; }
+  .demo-hero-text { margin: 0; font-size: 20px; font-weight: var(--ak-fw); letter-spacing: -0.03em; }
+  .demo-hero-sub { margin: 2px 0 0; color: rgba(255, 255, 255, 0.82); font-size: var(--ak-fs-md); }
+  .demo-menu-host { position: relative; display: inline-block; }
+  .demo-menu-host .ak-card-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 8; }
+  .demo-grads { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .demo-grad { height: 56px; border-radius: var(--ak-radius-sm); display: grid; place-items: center; font-size: var(--ak-fs-sm); font-weight: var(--ak-fw); }
+  .demo-icon { display: block; width: 24px; height: 24px; }
+  .demo-icon svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .demo-banner-host { display: block; }
+  .demo-banner-copy { flex: 1; min-width: 0; }
+  .demo-banner-copy strong { display: block; font-size: var(--ak-fs-md); font-weight: var(--ak-fw); }
+  .demo-banner-copy span { display: block; color: var(--ak-muted); font-size: var(--ak-fs-sm); margin-top: 1px; }
+  .demo-sheet-body p { margin: 0 0 12px; color: var(--ak-muted); font-size: var(--ak-fs-md); line-height: var(--ak-lh); }
+  .demo-sheet-title { margin: 0; font-size: 28px; letter-spacing: -0.04em; }
+</style>
+</head>
+<body>
+<div class="demo-phone">
+
+  <div class="demo-controls">
+    <div class="demo-wrap" id="scheme-controls">
+      <span class="demo-label">Scheme</span>
+      <button type="button" class="ak-chip" data-scheme="system">System</button>
+      <button type="button" class="ak-chip" data-scheme="light">Light</button>
+      <button type="button" class="ak-chip ak-chip-on" data-scheme="dark">Dark</button>
+    </div>
+    <div class="demo-wrap" id="accent-controls">
+      <span class="demo-label">Accent</span>
+      <button type="button" class="ak-chip ak-chip-on" data-accent="hangry">Hangry</button>
+      <button type="button" class="ak-chip" data-accent="loaner">Loaner</button>
+      <button type="button" class="ak-chip" data-accent="extrablatt">Extrablatt</button>
+    </div>
+    <div class="demo-wrap">
+      <span class="demo-label">E-ink</span>
+      <button type="button" class="ak-chip" id="eink-toggle" aria-pressed="false">Off</button>
+    </div>
+  </div>
+
+  <header class="ak-screen-head">
+    <h1 class="ak-screen-title">Design</h1>
+    <div class="demo-wrap">
+      <button type="button" class="ak-icon-btn" aria-label="Search"><span class="demo-icon" data-icon="search"></span></button>
+      <button type="button" class="ak-icon-btn ak-icon-btn-on" aria-label="Alerts"><span class="demo-icon" data-icon="bell"></span></button>
+    </div>
+  </header>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Buttons</h2>
+    <div class="demo-stack">
+      <button type="button" class="ak-btn">Primary</button>
+      <button type="button" class="ak-btn ak-btn-accent">Accent</button>
+      <button type="button" class="ak-btn ak-btn-secondary">Secondary</button>
+      <button type="button" class="ak-btn ak-btn-ghost">Ghost</button>
+      <button type="button" class="ak-btn ak-btn-danger">Danger</button>
+      <button type="button" class="ak-btn" disabled>Disabled</button>
+      <div class="demo-wrap"><button type="button" class="ak-btn ak-btn-text">Text button</button></div>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Toggle, chips, pill, badge</h2>
+    <div class="demo-stack">
+      <button type="button" class="ak-toggle" id="toggle-demo" aria-pressed="false">Join</button>
+      <div class="demo-wrap">
+        <button type="button" class="ak-chip ak-chip-on">Tonight</button>
+        <button type="button" class="ak-chip">Later</button>
+        <button type="button" class="ak-chip">Another day</button>
+      </div>
+      <div class="demo-wrap">
+        <span class="ak-pill">3 in</span>
+        <span class="ak-badge">3</span>
+        <span class="ak-badge">99+</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Cards</h2>
+    <div class="demo-stack">
+      <div class="ak-card">
+        <p class="ak-row-title">A plain card</p>
+        <p class="ak-row-sub">Surface background, 22px radius.</p>
+      </div>
+      <div class="ak-card-hero ak-grad ak-grad-6">
+        <span class="ak-pill" style="position:absolute;top:14px;right:14px;">Now</span>
+        <p class="demo-hero-text">Climbing at the hall</p>
+        <p class="demo-hero-sub">Tonight, 18:30</p>
+        <div class="ak-avatar-wrap" style="margin-top:8px;">
+          <span class="ak-avatar ak-grad-0">A</span><span class="ak-avatar ak-grad-5">B</span><span class="ak-avatar ak-grad-9">C</span>
+        </div>
+      </div>
+      <div class="demo-menu-host">
+        <button type="button" class="ak-btn ak-btn-secondary" id="menu-button" aria-expanded="false" style="width:auto;padding:0 20px;">Open menu</button>
+        <div class="ak-card-menu" id="demo-menu" role="menu" hidden>
+          <button type="button" class="ak-card-menu-item ak-card-menu-item-on" role="menuitem">Selected</button>
+          <button type="button" class="ak-card-menu-item" role="menuitem">Edit</button>
+          <button type="button" class="ak-card-menu-item ak-card-menu-item-muted" role="menuitem">Hide</button>
+          <button type="button" class="ak-card-menu-item ak-card-menu-item-danger" role="menuitem">Delete</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section" style="padding-top:120px;">
+    <h2 class="demo-h">Panel, list, divider</h2>
+    <div class="ak-panel">
+      <div class="ak-list">
+        <button type="button" class="ak-row"><span class="ak-row-grow"><p class="ak-row-title">Notifications</p><p class="ak-row-sub">Plans and chat</p></span><span class="ak-badge">2</span></button>
+        <button type="button" class="ak-row"><span class="ak-row-grow"><p class="ak-row-title">Circles</p><p class="ak-row-sub">Friends, Climbing</p></span></button>
+        <div class="ak-row"><span class="ak-row-grow"><p class="ak-row-title">Static row</p></span></div>
+      </div>
+    </div>
+    <div class="ak-or" style="margin-top:20px;">or</div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Sheet, toast, banner</h2>
+    <div class="demo-stack">
+      <button type="button" class="ak-btn" id="open-sheet">Open sheet</button>
+      <button type="button" class="ak-btn ak-btn-secondary" id="open-toast">Show toast</button>
+      <button type="button" class="ak-btn ak-btn-secondary" id="open-error">Show error toast</button>
+      <div class="ak-banner demo-banner-host">
+        <span class="ak-avatar">A</span>
+        <span class="demo-banner-copy"><strong>Alex is in</strong><span>Climbing at the hall</span></span>
+        <button type="button" class="ak-icon-btn" aria-label="Dismiss"><span class="demo-icon" data-icon="close"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Form</h2>
+    <div class="demo-stack">
+      <label class="ak-field"><span class="ak-label">Title</span><input class="ak-input" type="text" placeholder="What are you up to?"></label>
+      <label class="ak-field"><span class="ak-label">Details</span><textarea class="ak-input" placeholder="Anything else"></textarea></label>
+      <div class="ak-segment" id="segment-demo">
+        <button type="button" class="ak-segment-btn ak-segment-btn-on" aria-pressed="true">Now</button>
+        <button type="button" class="ak-segment-btn" aria-pressed="false">Later</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Empty state</h2>
+    <div class="ak-empty">Nothing planned yet. Start one with the button above.</div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Avatars</h2>
+    <div class="demo-wrap">
+      <span class="ak-avatar ak-grad-2">A</span>
+      <span class="ak-avatar ak-grad-8">B</span>
+      <span class="ak-avatar ak-avatar-lg ak-grad-11">C</span>
+    </div>
+  </section>
+
+  <section class="demo-section">
+    <h2 class="demo-h">Gradients 0 to 13</h2>
+    <div class="demo-grads" id="grads"></div>
+  </section>
+
+</div>
+
+<div id="tabbar-host"></div>
+
+<script src="../frontend/ak-dom.js"></script>
+<script src="../frontend/ak-sheet.js"></script>
+<script src="../frontend/ak-toast.js"></script>
+<script src="../frontend/ak-tabbar.js"></script>
+<script src="../frontend/ak-nav.js"></script>
+<script>
+(function () {
+  'use strict';
+  var h = AppKit.h;
+  var root = document.documentElement;
+
+  // Icons are constant strings from this page, not user input.
+  var ICONS = {
+    search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    bell: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></svg>',
+    close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    now: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+    plans: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+    you: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>'
+  };
+  function icon(name) {
+    var span = h('span', { class: 'demo-icon' });
+    span.innerHTML = ICONS[name];
+    return span;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-icon]'), function (el) {
+    el.innerHTML = ICONS[el.getAttribute('data-icon')];
+  });
+
+  // ---- Controls: scheme, accent, e-ink ----
+  var ACCENTS = {
+    hangry: null,
+    loaner: {
+      light: { accent: '#00857a', focus: '#00857a', strong: '#00857a', ink: '#ffffff' },
+      dark: { accent: '#2bb3a3', focus: '#2bb3a3', strong: '#2bb3a3', ink: '#ffffff' }
+    },
+    extrablatt: {
+      light: { accent: '#1b1a17', focus: '#1b1a17', strong: '#1b1a17', ink: '#ffffff' },
+      dark: { accent: '#f1ecdf', focus: '#f1ecdf', strong: '#f1ecdf', ink: '#1b1a17' }
+    }
+  };
+  var scheme = 'dark';
+  var accent = 'hangry';
+  var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+  function effectiveScheme() {
+    if (scheme !== 'system') { return scheme; }
+    return darkQuery && darkQuery.matches === false ? 'light' : 'dark';
+  }
+
+  function applyAccent() {
+    var names = ['--ak-accent', '--ak-accent-2', '--ak-accent-strong', '--ak-accent-ink'];
+    var set = ACCENTS[accent];
+    // Under e-ink the kit forces black. Do not fight it.
+    if (!set || root.classList.contains('eink')) {
+      names.forEach(function (n) { root.style.removeProperty(n); });
+      return;
+    }
+    var c = set[effectiveScheme()];
+    root.style.setProperty('--ak-accent', c.accent);
+    root.style.setProperty('--ak-accent-2', c.focus);
+    root.style.setProperty('--ak-accent-strong', c.strong);
+    root.style.setProperty('--ak-accent-ink', c.ink);
+  }
+
+  function mark(group, attr, value) {
+    Array.prototype.forEach.call(document.querySelectorAll('#' + group + ' [' + attr + ']'), function (b) {
+      b.classList.toggle('ak-chip-on', b.getAttribute(attr) === value);
+    });
+  }
+
+  document.getElementById('scheme-controls').addEventListener('click', function (e) {
+    var value = e.target.getAttribute && e.target.getAttribute('data-scheme');
+    if (!value) { return; }
+    scheme = value;
+    if (value === 'system') { root.removeAttribute('data-ak-scheme'); } else { root.setAttribute('data-ak-scheme', value); }
+    mark('scheme-controls', 'data-scheme', value);
+    applyAccent();
+  });
+  if (darkQuery && darkQuery.addEventListener) {
+    darkQuery.addEventListener('change', applyAccent);
+  }
+
+  document.getElementById('accent-controls').addEventListener('click', function (e) {
+    var value = e.target.getAttribute && e.target.getAttribute('data-accent');
+    if (!value) { return; }
+    accent = value;
+    mark('accent-controls', 'data-accent', value);
+    applyAccent();
+  });
+
+  var einkButton = document.getElementById('eink-toggle');
+  einkButton.addEventListener('click', function () {
+    var on = root.classList.toggle('eink');
+    einkButton.setAttribute('aria-pressed', on ? 'true' : 'false');
+    einkButton.textContent = on ? 'On' : 'Off';
+    einkButton.classList.toggle('ak-chip-on', on);
+    applyAccent();
+  });
+
+  // ---- Toggle, segment, menu ----
+  var toggle = document.getElementById('toggle-demo');
+  toggle.addEventListener('click', function () {
+    var on = toggle.getAttribute('aria-pressed') !== 'true';
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.classList.toggle('ak-toggle-on', on);
+    toggle.textContent = on ? 'You are in' : 'Join';
+  });
+
+  var segButtons = document.querySelectorAll('#segment-demo .ak-segment-btn');
+  Array.prototype.forEach.call(segButtons, function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(segButtons, function (o) {
+        var on = o === b;
+        o.setAttribute('aria-pressed', on ? 'true' : 'false');
+        o.classList.toggle('ak-segment-btn-on', on);
+      });
+    });
+  });
+
+  var menu = document.getElementById('demo-menu');
+  var menuButton = document.getElementById('menu-button');
+  menuButton.addEventListener('click', function () {
+    menu.hidden = !menu.hidden;
+    menuButton.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+  });
+  Array.prototype.forEach.call(menu.querySelectorAll('.ak-card-menu-item'), function (item) {
+    item.addEventListener('click', function () {
+      menu.hidden = true;
+      menuButton.setAttribute('aria-expanded', 'false');
+      AppKit.toast(item.textContent + ' chosen');
+    });
+  });
+
+  // ---- Gradients ----
+  var grads = document.getElementById('grads');
+  for (var i = 0; i < 14; i++) {
+    grads.appendChild(h('div', { class: 'demo-grad ak-grad-' + i }, String(i)));
+  }
+
+  // ---- Toasts ----
+  document.getElementById('open-toast').addEventListener('click', function () { AppKit.toast('Saved'); });
+  document.getElementById('open-error').addEventListener('click', function () { AppKit.toast('Could not save', { kind: 'error' }); });
+
+  // ---- Sheet, with Back closing it ----
+  var openSheet = null;
+  function syncBack() {
+    AppKit.nav.syncOverlayHistory({
+      depth: function () { return openSheet ? 1 : 0; },
+      onPop: function () { if (openSheet) { openSheet.close(); } }
+    });
+  }
+  document.getElementById('open-sheet').addEventListener('click', function () {
+    var input = h('input', { class: 'ak-input', type: 'text', placeholder: 'Name' });
+    var done = h('button', { type: 'button', class: 'ak-btn', onclick: function () { if (openSheet) { openSheet.close(); } } }, 'Done');
+    var rows = [];
+    for (var n = 1; n <= 12; n++) {
+      rows.push(h('div', { class: 'ak-row' }, h('span', { class: 'ak-row-grow' }, h('p', { class: 'ak-row-title' }, 'Item ' + n))));
+    }
+    var node = h('div', { class: 'ak-sheet', role: 'dialog', 'aria-label': 'Demo sheet' },
+      h('div', { class: 'ak-sheet-head' },
+        h('div', { class: 'ak-grabber' }),
+        h('h2', { class: 'demo-sheet-title' }, 'Sheet')),
+      h('div', { class: 'ak-sheet-scroll demo-sheet-body' },
+        h('p', null, 'Drag the head down, tap the scrim, press Escape or use Back.'),
+        h('label', { class: 'ak-field' }, h('span', { class: 'ak-label' }, 'Name'), input),
+        h('div', { class: 'ak-list' }, rows)),
+      h('div', { class: 'ak-sheet-dock' }, done));
+    openSheet = AppKit.sheet.show(node, {
+      focus: input,
+      onClose: function () { openSheet = null; syncBack(); }
+    });
+    syncBack();
+  });
+
+  // ---- Tab bar ----
+  var bar = AppKit.tabbar({
+    tabs: [
+      { id: 'now', label: 'Now', icon: icon('now') },
+      { id: 'plans', label: 'Plans', icon: icon('plans') },
+      { id: 'you', label: 'You', icon: icon('you') }
+    ],
+    active: 'now',
+    badge: { plans: 3 },
+    onSelect: function (id) { bar.update({ active: id, badge: { plans: id === 'plans' ? 0 : 3 } }); }
+  });
+  document.getElementById('tabbar-host').appendChild(bar.el);
+
+  applyAccent();
+})();
+</script>
+</body>
+</html>

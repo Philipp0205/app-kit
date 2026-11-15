@@ -16,8 +16,62 @@ Apps pin a released git tag, not a branch tip.
 | `install-prompt.js`, `install-prompt.css` | `AppKit.installPrompt`: an "install this app" banner (iOS steps, native button, or a menu hint). |
 | `app-kit.css` | Safe-area variables (`--ak-safe-top` and friends) and the optional `html.ak-status-strip`. |
 | `head.html` | A copy-paste `<head>` snippet: theme-color metas, iOS and Android app metas, manifest link. |
+| `ak-tokens.css` | The `--ak-*` design tokens (colour, type, space, radii, motion). Dark default, light on a light phone, `data-ak-scheme` to force one. Also holds the per-app accent and font override points. |
+| `ak-base.css` | Optional reset. Does nothing until `<html class="ak-base">`. |
+| `ak-components.css` | Class-based components, all prefixed `ak-`, plus the `html.eink` layer. |
+| `ak-dom.js` | `AppKit.h` (build elements, text is never parsed as HTML) and `AppKit.copyText`. |
+| `ak-sheet.js` | `AppKit.sheet.show`: a bottom sheet with scrim, swipe down, Escape. |
+| `ak-toast.js` | `AppKit.toast`: short messages in `#ak-toasts`. |
+| `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges. No routing. |
+| `ak-nav.js` | `AppKit.nav.syncOverlayHistory`: Back closes the top overlay instead of leaving the app. |
 
-Each script is a plain IIFE and adds only `window.AppKit`. See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page.
+Each script is a plain IIFE and adds only `window.AppKit`. See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system.
+
+## Design
+
+The look is Hangry's, shared by all three apps. Each app keeps its own accent colour and may set its own font. This is additive: the v0.1.0 files, classes and variables work as before.
+
+Load order in the page head:
+
+    <link rel="stylesheet" href="/app-kit/ak-tokens.css">
+    <link rel="stylesheet" href="/app-kit/ak-base.css">        <!-- optional -->
+    <link rel="stylesheet" href="/app-kit/ak-components.css">
+    <link rel="stylesheet" href="/app-kit/app-kit.css">
+
+**Tokens.** `ak-tokens.css` defines `--ak-bg`, `--ak-text`, `--ak-muted`, `--ak-surface` (and `-2`, `-3`), `--ak-hairline`, `--ak-danger`, type (`--ak-fs-*`), space (`--ak-s1` to `--ak-s5`), radii (`--ak-radius-*`), chrome (`--ak-tab`, `--ak-phone`) and motion. Dark is the default. On a light phone only the colours change. To force a scheme, set `<html data-ak-scheme="dark">` or `"light"`. That wins over the phone setting. It also defines `--ak-safe-*`, so it works without `app-kit.css`.
+
+**Accent and font.** Set these after the kit CSS. Nothing else needs to change:
+
+    :root {
+      --ak-accent: #ff2d78;         /* main accent */
+      --ak-accent-2: #ff4d8d;       /* focus ring */
+      --ak-accent-strong: #e0115f;  /* deeper accent */
+      --ak-accent-ink: #ffffff;     /* text on an accent fill */
+      --ak-font: Inter, system-ui, sans-serif;
+      --ak-font-article: Georgia, serif;   /* Extrablatt, for long text */
+    }
+
+The defaults are Hangry pink. Light and dark each have their own accent, so an app that supports both sets it twice: in `@media (prefers-color-scheme: light)`, and for `html[data-ak-scheme="dark"]` and `html[data-ak-scheme="light"]` if it forces a scheme. Loan some, for example, sets `--ak-accent`, `--ak-accent-2` and `--ak-accent-strong` to `#00857a` in light and `#2bb3a3` in dark, and `--ak-font` to Inter if it wants it.
+
+**Classes.** Every component class starts with `ak-` (`ak-btn`, `ak-chip`, `ak-sheet`, `ak-tabbar`, `ak-input`, `ak-grad-0` to `ak-grad-13`, and so on). The CSS never styles a bare element, so including it does not change existing markup. The reset in `ak-base.css` only applies once the page adds `ak-base` to `<html>`.
+
+**JS helpers.** Plain scripts, no modules, no build. Load `ak-dom.js` first (the sheet and tab bar do not need it, but the demo and most apps use `AppKit.h` with them):
+
+    <script src="/app-kit/ak-dom.js"></script>
+    <script src="/app-kit/ak-sheet.js"></script>
+    <script src="/app-kit/ak-toast.js"></script>
+    <script src="/app-kit/ak-tabbar.js"></script>
+    <script src="/app-kit/ak-nav.js"></script>
+
+- `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
+- `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open.
+- `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
+- `AppKit.tabbar({ tabs, active, onSelect, badge })` returns `{ el, update }`. The kit does no routing.
+- `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
+
+**Server pages (Extrablatt Kindle, legal, billing).** Include `ak-tokens.css` and `ak-components.css` only. No JS is needed. Add `class="eink"` to `<html>` for e-ink.
+
+**E-ink.** `html.eink` (in `ak-components.css`) turns the kit greyscale and high contrast. Colours go to black and white, the accent is black, there is no blur, no shadow and no press motion, radii are 4 to 8px, and tap targets are at least 52px.
 
 ## Getting the files into an app
 
