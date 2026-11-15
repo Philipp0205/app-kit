@@ -1,8 +1,6 @@
 # Changelog
 
-## Unreleased
-
-### 0.2.0
+## 0.2.0 (2026-11-15)
 
 Minor and additive. Nothing from 0.1.0 changes its name or API.
 
@@ -15,7 +13,7 @@ Minor and additive. Nothing from 0.1.0 changes its name or API.
 - `tests/design.test.mjs`: the new helpers, and a lint that fails on a non-`ak-` class or a bare element selector in `ak-components.css`. `tests/helpers/fake-dom.mjs` gained `style`, `remove`, `focus`, a `textContent` setter, comma selectors, timers, key events, and a fake history.
 - `install-prompt.css`: the `--ak-ip-*` variables still win, and the class names are unchanged. The final fallbacks are now the Hangry tokens (dark first, light on a light phone) instead of the old paper colours, and the font follows `--ak-font`. A page that loads `ak-tokens.css` gets the new look by default. A page that defines its own `--ak-surface` and friends is unaffected.
 
-### 0.1.0
+## 0.1.0 (2026-11-15)
 
 - `frontend/theme-color.js`: `AppKit.themeColor.start(opts)` keeps one `theme-color` meta equal to the painted page background. It removes media-bound metas, falls back to `body` when `html` is transparent, and re-syncs on colour-scheme changes, extra media queries (`opts.media`), and resize. `opts.skip` takes a function or a selector such as `html.eink`.
 - `AppKit.themeColor.toHex(value)` reads `rgb()` and `rgba()` in both comma and space form, including `/ alpha` and `0%`. Fully transparent gives `null`. This fixes the bar sticking on dark with the older comma-only parser.
