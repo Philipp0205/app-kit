@@ -4,7 +4,7 @@ Shared frontend helpers for Hangry (free-now), Loan some (loaner), and Extrablat
 
 - Plain JS and CSS for PWA install prompts, theme-color, and push. No build step, no runtime dependencies.
 - TypeScript server modules for the two TypeScript apps (`server/`): rate limiter, client key, time, HTTP, CSP, static files, health, graceful shutdown. `node:` built-ins only.
-- A TypeScript auth module for the two TypeScript apps (planned).
+- A TypeScript auth module for the two TypeScript apps (`server/auth.ts`, see "Auth module" below).
 - Shared Playwright behaviour tests (planned).
 
 Apps pin a released git tag, not a branch tip.
@@ -156,6 +156,31 @@ An app whose `tsconfig.json` type-checks these files needs `"allowImportingTsExt
     installGracefulShutdown({ server, onClose: () => db.close() });
 
 `healthHandler` and `serveStatic` answer or return `false`, so the app decides the order. `res.setHeader` before `sendJson` keeps the CSP, because `sendJson` only adds its own headers. `serveStatic` also sets the shared security headers. A 429 with `Retry-After` is a `sendJson(res, 429, { error }, { "retry-after": ... })` call using `limiter.resetIn`.
+
+### Auth module
+
+`server/auth.ts` (with `auth-code.ts` and `mailer.ts`): sign-up with a mandatory email, recovery-code login, a verify-email link, a lost-code link by mail, and sessions. One `createAuth(...)` object. The kit owns no schema: the app implements the 14-method `AuthStore` over its own tables. Design, store contract and rules: [docs/auth.md](docs/auth.md).
+
+    import { createAuth, resendMailer, createRateLimiter, clientKey, needsEmail, readJson, sendJson } from "./app-kit/index.ts";
+
+    const auth = createAuth({
+      store: sqliteAuthStore(db),               // the app's ~15 small queries
+      mailer: process.env.RESEND_API_KEY ? resendMailer({ apiKey: process.env.RESEND_API_KEY, from: process.env.MAIL_FROM! }) : undefined,
+      limiter: createRateLimiter({ limit: 10, windowMs: 10 * 60_000 }),
+      linkUrl: (kind, token) => `${origin}/${kind === "verify" ? "verify" : "recover"}#t=${token}`,
+      appName: "Loan some",
+    });
+
+    // POST /api/auth/start
+    const r = await auth.signup({ name, email });
+    if (!r.ok) throw new HttpError(400, "that email does not look right");
+    const { token } = await auth.startSession(r.user.id);
+    sendJson(res, 200, { token, recoveryCode: r.recoveryCode, user: r.user });
+
+    // every authed route
+    const user = await auth.userForToken(bearer);
+    if (!user) throw new HttpError(401, "sign in");
+    if (needsEmail(user) && !isAddEmailRoute) throw new HttpError(403, "add an email first");
 
 ### Syncing the TS apps
 
