@@ -271,6 +271,7 @@ export function createEnv(options) {
       return lists[query];
     };
   }
+  sandbox.URL = URL; // a fresh vm context has no URL; ak-donate.js needs it
   sandbox.window = sandbox;
   vm.createContext(sandbox);
 

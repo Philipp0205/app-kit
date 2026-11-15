@@ -2,7 +2,7 @@
 
 ## Unreleased (0.4.0)
 
-Minor and additive: the auth module. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Design and store contract: `docs/auth.md`.
+Minor and additive: the auth module and a voluntary PayPal donate component. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Design and store contract: `docs/auth.md`.
 
 - `server/auth.ts`: `createAuth(options)` returns one object with `signup`, `rotateCode`, `setEmail`, `verifyEmail`, `loginByCode`, `requestLostCode`, `consumeLostCode`, `startSession`, `userForToken` and `endSession`. The kit owns no schema: the app implements `AuthStore` (14 small methods, atomic only in `takeLink`). Options are checked once and a missing `store`, `limiter`, `linkUrl` or `appName` throws `TypeError`. Link and session tokens are 32 random bytes in base64url and are stored only as their sha256. Verify links last 24 h, lost-code links 20 min.
 - `server/auth-code.ts`: `generateRecoveryCode` (`XXXX-XXXX-XXXX`, CSPRNG without modulo bias), `normalizeRecoveryCode`, `hashSecret`, `normalizeEmail`, `needsEmail`.
@@ -11,6 +11,13 @@ Minor and additive: the auth module. Nothing is breaking. No existing name or AP
 - Three small gaps from loaner, all additive: `sendJson` with an `undefined` body sends `null`, `readBody(req, maxBytes, { message? })` takes the 413 message, and `healthHandler(req, res, check?)` takes an optional check (a `Promise<boolean>`; a failing check answers `503 {"ok":false}` with nothing leaked). Without a check `healthHandler` is unchanged and synchronous.
 - Tests: `tests/server/auth.test.ts`, `auth-code.test.ts`, `mailer.test.ts` (with an in-memory store in `tests/server/auth-memory-store.ts`), and new cases in `http.test.ts`, `health.test.ts` and `index.test.ts`.
 - `consumeLostCode` rotates the recovery code by default and returns the new code once as `recoveryCode`. Apps that want the old code to keep working pass `rotateOnLostCode: false`. Still unreleased, so this is not a break against 0.3.0.
+- `frontend/ak-donate.js`: `AppKit.donate.button({ url, label })` (an `ak-btn`, default label "Donate") and `AppKit.donate.show({ url, appName, text, amounts })`, a voluntary tip sheet on `AppKit.sheet`. It has a grabber head, a short note (default English with `appName`, or `text`), optional amount chips and a "Donate with PayPal" link. Everything is built with `AppKit.h`, so text is never parsed as HTML. Load after `ak-dom.js` and `ak-sheet.js`; it throws a clear error if either is missing.
+- URL rule: `url` must be `https:` and the host must be exactly `paypal.me` or `www.paypal.com`. Anything else throws a `TypeError`.
+- Amounts: `amounts` is a non-empty array of positive finite numbers. A chip links to the url with one trailing slash stripped, plus `/{amount}EUR`. EUR is fixed.
+- It only links out (`target="_blank"`, `rel="noopener noreferrer"`). No payments, no PayPal SDK, no tracking, no network calls.
+- `ak-components.css`: `.ak-donate-amounts` (wrapping chip row) and `.ak-donate-note`. No new colours. `.ak-chip` now sets `text-decoration: none`, so amount chips used as links have no underline.
+- `demo/index.html`: loads the design CSS and the sheet helpers, and has a Donate section with a fake `https://paypal.me/appkitdemo` link.
+- Tests: `tests/donate.test.mjs`. `tests/helpers/fake-dom.mjs` now gives the sandbox a `URL`.
 
 ## 0.3.0 (2026-11-15)
 
