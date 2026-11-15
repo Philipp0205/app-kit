@@ -11,6 +11,9 @@ var ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'
 function parseSelector(selector) {
   var rest = selector.trim();
   var sel = { tag: null, classes: [], id: null, attrs: [] };
+  if (selector.indexOf(',') >= 0) {
+    return { any: selector.split(',').map(parseSelector) };
+  }
   var tag = /^[a-zA-Z][\w-]*/.exec(rest);
   if (tag) {
     sel.tag = tag[0].toLowerCase();
@@ -50,6 +53,22 @@ class FakeNode {
   get textContent() {
     return this.childNodes.map(function (n) { return n.textContent; }).join('');
   }
+  set textContent(text) {
+    var self = this;
+    this.childNodes.slice().forEach(function (n) { self.removeChild(n); });
+    if (text !== '' && text !== null && text !== undefined) {
+      var node = new FakeText(String(text));
+      node.parentNode = this;
+      this.childNodes.push(node);
+    }
+  }
+  get style() {
+    if (!this._style) this._style = {};
+    return this._style;
+  }
+  remove() { if (this.parentNode) this.parentNode.removeChild(this); }
+  focus(options) { this.focused = true; this.focusOptions = options; }
+  select() { this.selected = true; }
   setAttribute(name, value) {
     this.attributes[name] = String(value);
     if (name === 'class') this.className = String(value);
@@ -80,6 +99,11 @@ class FakeNode {
   addEventListener(type, fn) {
     (this.listeners[type] = this.listeners[type] || []).push(fn);
   }
+  removeEventListener(type, fn) {
+    var list = this.listeners[type] || [];
+    var at = list.indexOf(fn);
+    if (at >= 0) list.splice(at, 1);
+  }
   click() { this.dispatch('click', {}); }
   dispatch(type, event) {
     var self = this;
@@ -87,6 +111,13 @@ class FakeNode {
   }
   matches(selector) {
     var sel = parseSelector(selector);
+    if (sel.any) {
+      var self = this;
+      return sel.any.some(function (one) { return self.matchesParsed(one); });
+    }
+    return this.matchesParsed(sel);
+  }
+  matchesParsed(sel) {
     if (sel.tag && sel.tag !== this.tagName.toLowerCase()) return false;
     if (sel.id && sel.id !== this.id) return false;
     var own = this.className.split(/\s+/);
@@ -174,6 +205,32 @@ export function createEnv(options) {
   document.addEventListener = function (type, fn) {
     (docListeners[type] = docListeners[type] || []).push(fn);
   };
+  document.removeEventListener = function (type, fn) {
+    var list = docListeners[type] || [];
+    var at = list.indexOf(fn);
+    if (at >= 0) list.splice(at, 1);
+  };
+  document.execCommand = function (command) {
+    document.commands.push(command);
+    return o.execCommand !== false;
+  };
+  document.commands = [];
+
+  // A fake history stack. go() is queued, so a test decides when popstate lands.
+  var stack = [{ state: null }];
+  var position = 0;
+  var pendingGo = [];
+  var timers = [];
+  var history = {
+    pushState: function (state) {
+      stack.splice(position + 1);
+      stack.push({ state: state });
+      position += 1;
+    },
+    go: function (n) { pendingGo.push(n); },
+    get state() { return stack[position].state; },
+    get length() { return stack.length; }
+  };
 
   var winListeners = {};
   var lists = {};
@@ -191,8 +248,12 @@ export function createEnv(options) {
       (winListeners[type] = winListeners[type] || []).push(fn);
     },
     getComputedStyle: function (el) { return { backgroundColor: el._bg || 'rgba(0, 0, 0, 0)' }; },
-    requestAnimationFrame: function (fn) { frames.push(fn); return frames.length; }
+    requestAnimationFrame: function (fn) { frames.push(fn); return frames.length; },
+    setTimeout: function (fn, ms) { timers.push({ fn: fn, ms: ms }); return timers.length; },
+    clearTimeout: function () {}
   };
+  if (!o.noHistory) sandbox.history = history;
+  if (o.clipboard) sandbox.navigator.clipboard = o.clipboard;
   if (o.standalone !== undefined) sandbox.navigator.standalone = o.standalone;
   if (!o.noMatchMedia) {
     sandbox.matchMedia = function (query) {
@@ -247,6 +308,30 @@ export function createEnv(options) {
     flushFrames: function () {
       var run = frames.splice(0, frames.length);
       run.forEach(function (fn) { fn(); });
+    },
+    // Timers the kit set with setTimeout. runTimers() fires them all.
+    timers: timers,
+    runTimers: function () {
+      var run = timers.splice(0, timers.length);
+      run.forEach(function (t) { t.fn(); });
+    },
+    fireKey: function (key) {
+      (docListeners.keydown || []).slice().forEach(function (fn) { fn({ key: key }); });
+    },
+    docHandlerCount: function (type) { return (docListeners[type] || []).length; },
+    // The fake history. Back lands one step, like a phone's Back button.
+    history: history,
+    historyPosition: function () { return position; },
+    pendingGo: function () { return pendingGo.slice(); },
+    pressBack: function () {
+      position = Math.max(0, position - 1);
+      this.fireWindow('popstate', { state: stack[position].state });
+    },
+    // Lets a go() the kit asked for land: one popstate.
+    landGo: function () {
+      var n = pendingGo.shift();
+      position = Math.max(0, Math.min(stack.length - 1, position + n));
+      this.fireWindow('popstate', { state: stack[position].state });
     }
   };
 }

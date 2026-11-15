@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### 0.2.0
+
+Minor and additive. Nothing from 0.1.0 changes its name or API.
+
+- Shared design system, the Hangry look. Each app keeps its own accent and may set its own font (`--ak-accent*`, `--ak-font`).
+- `frontend/ak-tokens.css`: `--ak-*` tokens for colour, type, space, radii, chrome and motion. Dark by default, light on a light phone (colours only), and `html[data-ak-scheme="dark|light"]` to force one. Also defines `--ak-safe-*`, same values as `app-kit.css`, and `--ak-ink` / `--ak-line` aliases.
+- `frontend/ak-base.css`: an opt-in reset, scoped under `html.ak-base`.
+- `frontend/ak-components.css`: class-based components, all `ak-` prefixed, no bare element selectors: buttons, icon button, toggle, chip, pill, badge, cards, card menu, panel, list and row, divider, scrim, sheet, tab bar, screen head, field and input, segment, toast, banner, empty state, avatars, `ak-grad-0` to `ak-grad-13`. Press feel at zero specificity. An `html.eink` layer for e-ink pages.
+- JS helpers on `window.AppKit`: `h` and `copyText` (`ak-dom.js`), `sheet.show` (`ak-sheet.js`), `toast` (`ak-toast.js`), `tabbar` (`ak-tabbar.js`), `nav.syncOverlayHistory` (`ak-nav.js`).
+- `demo/design.html`: every component, with scheme, accent and e-ink switches. `demo/index.html` links to it.
+- `tests/design.test.mjs`: the new helpers, and a lint that fails on a non-`ak-` class or a bare element selector in `ak-components.css`. `tests/helpers/fake-dom.mjs` gained `style`, `remove`, `focus`, a `textContent` setter, comma selectors, timers, key events, and a fake history.
+- `install-prompt.css`: the `--ak-ip-*` variables still win, and the class names are unchanged. The final fallbacks are now the Hangry tokens (dark first, light on a light phone) instead of the old paper colours, and the font follows `--ak-font`. A page that loads `ak-tokens.css` gets the new look by default. A page that defines its own `--ak-surface` and friends is unaffected.
+
 ### 0.1.0
 
 - `frontend/theme-color.js`: `AppKit.themeColor.start(opts)` keeps one `theme-color` meta equal to the painted page background. It removes media-bound metas, falls back to `body` when `html` is transparent, and re-syncs on colour-scheme changes, extra media queries (`opts.media`), and resize. `opts.skip` takes a function or a selector such as `html.eink`.

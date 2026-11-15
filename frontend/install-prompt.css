@@ -4,7 +4,9 @@
  *
  * Colours come from kit variables with fallbacks, so it looks fine on a page
  * that defines none. Override --ak-ip-* for this banner only, or define
- * --ak-surface, --ak-ink, --ak-line and --ak-accent for the whole kit.
+ * --ak-surface, --ak-ink, --ak-line and --ak-accent for the whole kit
+ * (ak-tokens.css does that). The last fallbacks are the Hangry tokens: dark
+ * first, and light on a light phone. --ak-ip-* always wins.
  */
 .ak-ip {
   display: flex;
@@ -15,18 +17,18 @@
   max-width: 608px;
   margin: 12px auto 0;
   padding: 12px;
-  background: var(--ak-ip-bg, var(--ak-surface, #f4eee1));
-  color: var(--ak-ip-fg, var(--ak-ink, #1b1a17));
-  border: 1px solid var(--ak-ip-border, var(--ak-line, rgba(27, 26, 23, 0.18)));
+  background: var(--ak-ip-bg, var(--ak-surface, #1c1c1e));
+  color: var(--ak-ip-fg, var(--ak-ink, #ffffff));
+  border: 1px solid var(--ak-ip-border, var(--ak-line, rgba(255, 255, 255, 0.12)));
   border-radius: var(--ak-ip-radius, 14px);
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.4 var(--ak-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   .ak-ip {
-    background: var(--ak-ip-bg, var(--ak-surface, #26221b));
-    color: var(--ak-ip-fg, var(--ak-ink, #f1ecdf));
-    border-color: var(--ak-ip-border, var(--ak-line, rgba(241, 236, 223, 0.22)));
+    background: var(--ak-ip-bg, var(--ak-surface, #ffffff));
+    color: var(--ak-ip-fg, var(--ak-ink, #000000));
+    border-color: var(--ak-ip-border, var(--ak-line, rgba(0, 0, 0, 0.12)));
   }
 }
 
@@ -87,13 +89,20 @@
 .ak-ip .ak-ip-install {
   min-height: 40px;
   padding: 0 20px;
-  border: 1px solid var(--ak-ip-accent, var(--ak-accent, #0f6b6b));
+  border: 1px solid var(--ak-ip-accent, var(--ak-accent, #ff2d78));
   border-radius: 10px;
-  background: var(--ak-ip-accent, var(--ak-accent, #0f6b6b));
+  background: var(--ak-ip-accent, var(--ak-accent, #ff2d78));
   color: var(--ak-ip-accent-fg, var(--ak-accent-ink, #ffffff));
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+@media (prefers-color-scheme: light) {
+  .ak-ip .ak-ip-install {
+    border-color: var(--ak-ip-accent, var(--ak-accent, #c2185b));
+    background: var(--ak-ip-accent, var(--ak-accent, #c2185b));
+  }
 }
 
 .ak-ip .ak-ip-install:disabled {
