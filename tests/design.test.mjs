@@ -617,3 +617,257 @@ test('css: the tokens file defines the contract names', function () {
   // Forced schemes come after the media query, so they win.
   assert.ok(css.indexOf('html[data-ak-scheme="light"]') > css.indexOf('prefers-color-scheme: light'));
 });
+
+// ---------- Contrast (WCAG 2.x) ----------
+
+function readFrontend(name) {
+  return stripComments(fs.readFileSync(path.join(ROOT, 'frontend', name), 'utf8'));
+}
+
+// The text between the first "{" at or after "from" and its matching "}".
+function blockFrom(css, from) {
+  var open = css.indexOf('{', from);
+  assert.ok(open >= 0, 'no block after index ' + from);
+  var depth = 0;
+  for (var i = open; i < css.length; i++) {
+    if (css[i] === '{') depth += 1;
+    if (css[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return css.slice(open + 1, i);
+    }
+  }
+  throw new Error('unbalanced block');
+}
+
+function blockAfter(css, marker, afterMarker) {
+  var start = css.indexOf(marker);
+  assert.ok(start >= 0, 'missing ' + marker);
+  if (afterMarker) {
+    start = css.indexOf(afterMarker, start);
+    assert.ok(start >= 0, 'missing ' + afterMarker);
+  }
+  return blockFrom(css, start);
+}
+
+// Hex colour declarations of a block: { '--ak-muted': '#636366', ... }.
+function hexTokens(block) {
+  var out = {};
+  var re = /(--ak-[\w-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;/g;
+  var m;
+  while ((m = re.exec(block))) out[m[1]] = m[2].toLowerCase();
+  return out;
+}
+
+function channel(v) {
+  var c = v / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function luminance(hex) {
+  var n = parseInt(hex.slice(1), 16);
+  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
+}
+
+function contrast(a, b) {
+  var x = luminance(a);
+  var y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+var TOKENS_CSS = readFrontend('ak-tokens.css');
+var SCHEMES = {
+  'dark (:root)': hexTokens(blockAfter(TOKENS_CSS, ':root {')),
+  'dark (data-ak-scheme)': hexTokens(blockAfter(TOKENS_CSS, 'html[data-ak-scheme="dark"]')),
+  'light (media)': hexTokens(blockAfter(TOKENS_CSS, '@media (prefers-color-scheme: light)', ':root')),
+  'light (data-ak-scheme)': hexTokens(blockAfter(TOKENS_CSS, 'html[data-ak-scheme="light"]'))
+};
+
+test('contrast: the helper matches known WCAG values', function () {
+  assert.equal(contrast('#000000', '#ffffff').toFixed(2), '21.00');
+  assert.equal(contrast('#8e8e93', '#ffffff').toFixed(2), '3.26');
+  assert.equal(contrast('#ffffff', '#ff2d78').toFixed(2), '3.56');
+});
+
+test('contrast: all four colour blocks were parsed', function () {
+  Object.keys(SCHEMES).forEach(function (name) {
+    ['--ak-bg', '--ak-text', '--ak-muted', '--ak-danger', '--ak-accent', '--ak-accent-strong',
+      '--ak-accent-ink', '--ak-surface', '--ak-surface-2', '--ak-surface-3', '--ak-panel'].forEach(function (token) {
+      assert.match(SCHEMES[name][token] || '', /^#[0-9a-f]{6}$/, name + ' ' + token);
+    });
+  });
+});
+
+test('contrast: the two copies of each scheme hold the same colours', function () {
+  assert.deepEqual(SCHEMES['dark (data-ak-scheme)'], SCHEMES['dark (:root)']);
+  assert.deepEqual(SCHEMES['light (data-ak-scheme)'], SCHEMES['light (media)']);
+});
+
+test('contrast: text, muted and danger reach 4.5:1 on every surface, in every colour block', function () {
+  Object.keys(SCHEMES).forEach(function (name) {
+    var t = SCHEMES[name];
+    ['--ak-text', '--ak-muted', '--ak-danger'].forEach(function (fg) {
+      ['--ak-bg', '--ak-surface', '--ak-surface-2', '--ak-surface-3', '--ak-panel'].forEach(function (bg) {
+        var ratio = contrast(t[fg], t[bg]);
+        assert.ok(ratio >= 4.5, name + ': ' + fg + ' ' + t[fg] + ' on ' + bg + ' ' + t[bg] + ' is ' + ratio.toFixed(2));
+      });
+    });
+  });
+});
+
+test('contrast: accent ink reaches 4.5:1 on the accent fills, in every colour block', function () {
+  Object.keys(SCHEMES).forEach(function (name) {
+    var t = SCHEMES[name];
+    ['--ak-accent', '--ak-accent-strong'].forEach(function (fill) {
+      var ratio = contrast(t['--ak-accent-ink'], t[fill]);
+      assert.ok(ratio >= 4.5, name + ': accent-ink on ' + fill + ' ' + t[fill] + ' is ' + ratio.toFixed(2));
+    });
+  });
+});
+
+// The declaration block of a rule with exactly this selector list.
+function ruleBody(css, selector) {
+  var escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/,\s*/g, ',\\s*');
+  var m = new RegExp('(?:^|})\\s*' + escaped + '\\s*\\{([^}]*)\\}').exec(css);
+  assert.ok(m, 'no rule for ' + selector);
+  return m[1];
+}
+
+// The token a property points at, e.g. "background: var(--ak-surface-2)".
+function tokenOf(body, property, selector) {
+  var m = new RegExp('(?:^|[;\\s])' + property + '\\s*:\\s*var\\((--ak-[\\w-]+)\\)').exec(body);
+  assert.ok(m, selector + ' has no ' + property + ' token');
+  return m[1];
+}
+
+test('contrast: toast text, default and error, reaches 4.5:1 on the toast background', function () {
+  var css = readFrontend('ak-components.css');
+  var bgToken = tokenOf(ruleBody(css, '.ak-toast'), 'background', '.ak-toast');
+  var plainToken = tokenOf(ruleBody(css, '.ak-toast'), 'color', '.ak-toast');
+  var errorSelector = '.ak-toast-error, .ak-toast-danger';
+  var errorToken = tokenOf(ruleBody(css, errorSelector), 'color', errorSelector);
+  Object.keys(SCHEMES).forEach(function (name) {
+    var t = SCHEMES[name];
+    var bg = t[bgToken];
+    assert.ok(bg, name + ': ' + bgToken + ' is not a hex token');
+    [plainToken, errorToken].forEach(function (token) {
+      var ratio = contrast(t[token], bg);
+      assert.ok(ratio >= 4.5, name + ': toast ' + token + ' ' + t[token] + ' on ' + bg + ' is ' + ratio.toFixed(2));
+    });
+  });
+});
+
+// ---------- Z-order ----------
+
+// The z-index of a rule. A var(--ak-z-x, n) is read from the tokens file.
+function zOf(css, selector) {
+  var body = ruleBody(css, selector);
+  var decl = /(?:^|[;\s])z-index\s*:\s*([^;]+?)\s*(?:;|$)/.exec(body);
+  assert.ok(decl, selector + ' has no z-index');
+  var value = decl[1];
+  var v = /^var\((--ak-z-[\w-]+)\s*(?:,\s*(\d+))?\)$/.exec(value);
+  if (!v) {
+    assert.match(value, /^\d+$/, selector + ' z-index ' + value);
+    return Number(value);
+  }
+  var token = new RegExp(v[1] + '\\s*:\\s*(\\d+)\\s*;').exec(TOKENS_CSS);
+  if (token) {
+    if (v[2] !== undefined) assert.equal(Number(v[2]), Number(token[1]), v[1] + ' fallback matches the token');
+    return Number(token[1]);
+  }
+  assert.ok(v[2] !== undefined, v[1] + ' is not defined and has no fallback');
+  return Number(v[2]);
+}
+
+test('z-order: the sheet layer is above the tab bar, and the toast is above both', function () {
+  var css = readFrontend('ak-components.css');
+  var tabbar = zOf(css, '.ak-tabbar');
+  var layer = zOf(css, '.ak-sheet-layer');
+  var toast = zOf(css, '.ak-toast');
+  assert.ok(layer > tabbar, 'sheet layer ' + layer + ' must be above tab bar ' + tabbar);
+  assert.ok(toast > layer, 'toast ' + toast + ' must be above sheet layer ' + layer);
+});
+
+test('z-order: inside the layer the scrim is under the sheet', function () {
+  var css = readFrontend('ak-components.css');
+  assert.ok(zOf(css, '.ak-sheet') > zOf(css, '.ak-scrim'));
+  assert.ok(zOf(css, '.ak-scrim') > 0);
+});
+
+test('z-order: the z tokens keep the order tab bar < sheet layer < toast', function () {
+  function token(name) {
+    var m = new RegExp(name + '\\s*:\\s*(\\d+)\\s*;').exec(TOKENS_CSS);
+    assert.ok(m, 'missing ' + name);
+    return Number(m[1]);
+  }
+  assert.ok(token('--ak-z-tabbar') < token('--ak-z-sheet-layer'));
+  assert.ok(token('--ak-z-sheet-layer') < token('--ak-z-toast'));
+  assert.ok(token('--ak-z-scrim') < token('--ak-z-sheet'));
+});
+
+// ---------- Tab badge aria ----------
+
+function badgeOf(bar, index) {
+  return bar.el.querySelectorAll('.ak-tab')[index].querySelector('.ak-badge');
+}
+
+test('tabbar badge: a badge of 3 is named "3 new", and the number is not read twice', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now', badge: { alerts: 3 } });
+  var badge = badgeOf(bar, 2);
+  assert.equal(badge.getAttribute('aria-label'), '3 new');
+  assert.equal(badge.getAttribute('role'), 'img');
+  assert.equal(badge.textContent, '3');
+});
+
+test('tabbar badge: 120 is named "99+ new" and shows 99+', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now', badge: { alerts: 120 } });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '99+ new');
+  assert.equal(badgeOf(bar, 2).textContent, '99+');
+});
+
+test('tabbar badge: badgeLabel changes the word after the count', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now', badge: { alerts: 3, plans: 120 }, badgeLabel: 'unread' });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '3 unread');
+  assert.equal(badgeOf(bar, 1).getAttribute('aria-label'), '99+ unread');
+});
+
+test('tabbar badge: an empty badgeLabel leaves just the count', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now', badge: { alerts: 3 }, badgeLabel: '' });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '3');
+});
+
+test('tabbar badge: custom text is its own label, and shows as before', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({
+    tabs: TABS,
+    active: 'now',
+    badge: function (id) { return id === 'plans' ? 'new' : null; }
+  });
+  assert.equal(badgeOf(bar, 1).textContent, 'new');
+  assert.equal(badgeOf(bar, 1).getAttribute('aria-label'), 'new');
+});
+
+test('tabbar badge: update refreshes the label, and no badge leaves no label', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now', badge: { alerts: 3 } });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '3 new');
+  bar.update({ badge: { alerts: 7 } });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '7 new');
+  bar.update({ badge: { alerts: 150 } });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '99+ new');
+  bar.update({ badge: { alerts: 0 } });
+  assert.equal(badgeOf(bar, 2), null);
+  assert.equal(bar.el.querySelectorAll('[aria-label]').length, 0);
+  bar.update({ badge: { alerts: 2 } });
+  assert.equal(badgeOf(bar, 2).getAttribute('aria-label'), '2 new');
+});
+
+test('tabbar badge: no badge at the start means no label in the tabs', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now' });
+  assert.equal(bar.el.querySelectorAll('.ak-badge').length, 0);
+  assert.equal(bar.el.querySelectorAll('[aria-label]').length, 0);
+});
