@@ -1,28 +1,40 @@
 #!/usr/bin/env bash
-# Copy the frontend/ files of a released app-kit tag into an app.
+# Copy the frontend/ (or, with --server, the server/) files of a released
+# app-kit tag into an app.
 #
 #   scripts/sync.sh <tag> <dest-dir>
+#   scripts/sync.sh --server <tag> <dest-dir>
 #   scripts/sync.sh v0.1.0 public/app-kit
+#   scripts/sync.sh --server v0.3.0 src/app-kit
 #
 # The repo is private. The tag is fetched with the local gh login
 # (gh api repos/.../tarball/<tag>). If gh is missing or not logged in, it
 # falls back to git clone --depth 1 --branch <tag>, which needs git access of its own.
 #
-# dest gets a copy of frontend/ and a VERSION file with the tag. Files in dest
-# that are no longer in frontend/ are removed. Safe to run again.
+# dest gets a copy of frontend/ (server/ with --server) and a VERSION file with
+# the tag. Files in dest that are no longer in that directory are removed.
+# Safe to run again.
 set -euo pipefail
 
 REPO="${APP_KIT_REPO:-Philipp0205/app-kit}"
 
 usage() {
   echo "usage: scripts/sync.sh <tag> <dest-dir>" >&2
+  echo "       scripts/sync.sh --server <tag> <dest-dir>" >&2
   echo "example: scripts/sync.sh v0.1.0 public/app-kit" >&2
+  echo "example: scripts/sync.sh --server v0.3.0 src/app-kit" >&2
 }
 
 fail() {
   echo "sync.sh: $*" >&2
   exit 1
 }
+
+part="frontend"
+if [ "${1:-}" = "--server" ]; then
+  part="server"
+  shift
+fi
 
 if [ "$#" -ne 2 ]; then
   usage
@@ -94,8 +106,8 @@ if ! fetch_with_gh; then
   fetch_with_git || fail "could not fetch '$tag'. Log in with 'gh auth login' (the repo is private) and try again."
 fi
 
-src="$tree/frontend"
-[ -d "$src" ] || fail "tag '$tag' has no frontend/ directory."
+src="$tree/$part"
+[ -d "$src" ] || fail "tag '$tag' has no $part/ directory."
 
 # Refuse a non-empty dest that was not made by this script (no VERSION file),
 # so a wrong path such as public/ never loses the app's own files.
@@ -106,7 +118,7 @@ fi
 # Only now touch dest, so a failed fetch leaves it as it was.
 mkdir -p "$dest"
 
-# Remove kit files that are gone from frontend/. VERSION stays.
+# Remove kit files that are gone from the source directory. VERSION stays.
 while IFS= read -r -d '' file; do
   rel="${file#"$dest"/}"
   [ "$rel" = "VERSION" ] && continue
