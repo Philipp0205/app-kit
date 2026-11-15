@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (0.4.0)
+
+Minor and additive: the auth module. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Design and store contract: `docs/auth.md`.
+
+- `server/auth.ts`: `createAuth(options)` returns one object with `signup`, `rotateCode`, `setEmail`, `verifyEmail`, `loginByCode`, `requestLostCode`, `consumeLostCode`, `startSession`, `userForToken` and `endSession`. The kit owns no schema: the app implements `AuthStore` (14 small methods, atomic only in `takeLink`). Options are checked once and a missing `store`, `limiter`, `linkUrl` or `appName` throws `TypeError`. Link and session tokens are 32 random bytes in base64url and are stored only as their sha256. Verify links last 24 h, lost-code links 20 min.
+- `server/auth-code.ts`: `generateRecoveryCode` (`XXXX-XXXX-XXXX`, CSPRNG without modulo bias), `normalizeRecoveryCode`, `hashSecret`, `normalizeEmail`, `needsEmail`.
+- `server/mailer.ts`: `resendMailer({ apiKey, from, fetch? })` (a non-2xx answer throws `MailerError` naming only the status), `stubMailer()`, types `Mailer` and `MailMessage`.
+- Mandatory email rules: `signup` requires an email (`invalid_email` otherwise) and `setEmail` is how an existing user adds one. `needsEmail(user)` is true for an existing user without an email, and the app blocks everything but the add-email prompt. Recovery by email goes only to verified addresses, and `requestLostCode` answers `{ ok: true }` whatever the address, with the mail sent in the background and failures logged by error name only. "Unique among verified addresses" is the app's unique index: the kit reports `email_taken`.
+- Three small gaps from loaner, all additive: `sendJson` with an `undefined` body sends `null`, `readBody(req, maxBytes, { message? })` takes the 413 message, and `healthHandler(req, res, check?)` takes an optional check (a `Promise<boolean>`; a failing check answers `503 {"ok":false}` with nothing leaked). Without a check `healthHandler` is unchanged and synchronous.
+- Tests: `tests/server/auth.test.ts`, `auth-code.test.ts`, `mailer.test.ts` (with an in-memory store in `tests/server/auth-memory-store.ts`), and new cases in `http.test.ts`, `health.test.ts` and `index.test.ts`.
+
 ## 0.3.0 (2026-11-15)
 
 Minor and additive: "platform primitives". Nothing from 0.2.x changes its name or API. `scripts/sync.sh <tag> <dest-dir>` works as before.

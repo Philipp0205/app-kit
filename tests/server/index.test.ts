@@ -27,6 +27,9 @@ test("index.ts re-exports every module's public API", () => {
     "healthHandler", "isHealthRequest", "HEALTH_PATH",
     // shutdown
     "installGracefulShutdown",
+    // auth-code, mailer, auth
+    "generateRecoveryCode", "normalizeRecoveryCode", "hashSecret", "normalizeEmail", "needsEmail",
+    "resendMailer", "stubMailer", "MailerError", "createAuth",
   ];
   for (const name of expected) assert.ok(name in kit, `${name} is exported from index.ts`);
 });
@@ -45,7 +48,7 @@ test("the kit does not export a router or an app wrapper", () => {
 
 test("every .ts file in server/ is importable on its own", async () => {
   const files = fs.readdirSync(SERVER_DIR).filter((f) => f.endsWith(".ts"));
-  assert.ok(files.length >= 9);
+  assert.ok(files.length >= 12);
   for (const file of files) {
     await import(path.join(SERVER_DIR, file));
   }
