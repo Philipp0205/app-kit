@@ -180,3 +180,16 @@ test('a failed fetch leaves dest untouched', function () {
     assert.equal(fs.readFileSync(path.join(s.dest, 'VERSION'), 'utf8'), 'v9.9.9');
   } finally { s.cleanup(); }
 });
+
+test('sync refuses a non-empty dest without VERSION and leaves its files alone', function () {
+  var s = scratch();
+  try {
+    fs.mkdirSync(s.dest, { recursive: true });
+    fs.writeFileSync(path.join(s.dest, 'index.html'), 'app');
+    var r = s.run(['v9.9.9', s.dest]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /no VERSION file/);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'index.html'), 'utf8'), 'app');
+    assert.equal(fs.existsSync(path.join(s.dest, 'a.js')), false);
+  } finally { s.cleanup(); }
+});

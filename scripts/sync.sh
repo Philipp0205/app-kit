@@ -97,6 +97,12 @@ fi
 src="$tree/frontend"
 [ -d "$src" ] || fail "tag '$tag' has no frontend/ directory."
 
+# Refuse a non-empty dest that was not made by this script (no VERSION file),
+# so a wrong path such as public/ never loses the app's own files.
+if [ -d "$dest" ] && [ -n "$(ls -A "$dest")" ] && [ ! -f "$dest/VERSION" ]; then
+  fail "'$dest' is not empty and has no VERSION file. Point it at a dedicated folder such as public/app-kit."
+fi
+
 # Only now touch dest, so a failed fetch leaves it as it was.
 mkdir -p "$dest"
 
