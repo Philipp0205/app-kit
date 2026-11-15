@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 (Unreleased)
+
+Minor and additive: "platform primitives". Nothing from 0.2.x changes its name or API. `scripts/sync.sh <tag> <dest-dir>` works as before.
+
+- `server/`: new TypeScript modules for the two TypeScript apps. `node:` built-ins only, no `package.json`, no dependencies, plain `.ts` on Node type stripping (Node >= 22.18 or 24, erasable syntax only, relative imports end in `.ts`). No router and no app wrapper: the apps keep their own route tables. `server/index.ts` re-exports everything, `server/README.md` lists the exports.
+  - `rate-limit.ts`: `createRateLimiter` from Hangry. Fixed window, `hit`, `resetIn`, `size`, bounded by `maxKeys` (default 10,000) with pruning. The clock is the `now` argument.
+  - `client-key.ts`: `clientKey(req)`, the rightmost `X-Forwarded-For` hop (the Railway rule), else the socket address, else `"unknown"`. Takes any `{ headers, socket }`. Several header lines are read as one list.
+  - `time.ts`: `isoDate`, `addDays`, `isCalendarDate`, `daysBetween`, `isTimeZone`, `assertTimeZone`, `zonedParts`, `zonedDateTime` (first instant on fall-back, RFC 5545 gap rule), `endOfDay`. The label formatters (`shortDate`, `dayLabel`, `clockLabel`, `noticeDay`) are left out on purpose.
+  - `http.ts`: `HttpError` (status, message, optional code), `SECURITY_HEADERS`, `sendJson`, `sendEmpty`, a capped `readBody` that drains an oversize body without keeping it and rejects with 413, `readJson` (per-call `max`, default 16 KiB, 400 on invalid JSON), `errorBody` and `sendError` (unknown errors are `500 {"error":"internal error"}`, nothing leaked).
+  - `csp.ts`: `buildCsp(directives)`, a parameterised Content-Security-Policy with strict defaults. It throws on `;`, `,`, whitespace and control characters. It has no built-in CDN list.
+  - `static.ts`: `serveStatic(root, options)`. GET and HEAD, rejects `..`, NUL and malformed encoding, stays inside the real root (symlinks and prefix siblings too), SPA fallback to `index.html`, common content types, configurable cache-control.
+  - `health.ts`: `healthHandler`, `isHealthRequest`. `GET`/`HEAD /api/health` is `200 {"ok":true}`, other methods are 405, other paths are not handled.
+  - `shutdown.ts`: `installGracefulShutdown`, modelled on loaner's `server.ts`. `server.close`, `closeIdleConnections`, an unref'd force-exit timer (8 s), a one-shot `onClose`. Signals, exit, timers and logging can be injected. Returns `{ shutdown, dispose }`.
+- `frontend/ak-whats-new.js`: `AppKit.whatsNew` helpers `validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate` and `newerSeen`. Pure, no DOM. An empty seen id gives every entry, an unknown seen id gives none.
+- `docs/whats-new.md`: the changelog entry schema (`id`, ISO `date`, `title`, `bullets`, newest first, unique ids), the seen-id rules, and how Extrablatt's `{ releases }` / `highlights` / `changes` / human-date format maps to it. Extrablatt's `unseenSince` returns only the latest release, which differs from `unseenEntries`.
+- `docs/java-conventions.md`: the Java-side spec for the limiter, the client key, `/api/health`, the error JSON and the security headers. Extrablatt's `RateLimiter` and `ClientIpResolver` already match; Actuator health stays at `/actuator/health`.
+- `scripts/sync.sh --server <tag> <dest-dir>`: copies `server/` instead of `frontend/` (for example into `src/app-kit`), with its own `VERSION` file, the same safety rules, and a clear error when the tag has no `server/`. The usage `scripts/sync.sh <tag> <dest-dir>` is unchanged.
+- `README.md`: a "Server modules (TS)" section with a wired-together example, the sync commands for TS apps, and the `allowImportingTsExtensions` note.
+- Tests: `tests/server/*.test.ts` (rate limiter, client key, time with Hangry's DST cases, HTTP on a real `node:http` server, CSP, static, health, shutdown, and a check that `server/` uses only `node:` imports and erasable syntax), `tests/whats-new.test.mjs`, and `--server` cases in `tests/sync.test.mjs`. `scripts/check.sh` now also runs `tests/server/*.test.ts`.
+
 ## 0.2.1 (unreleased)
 
 Patch. Additive. Fixes gaps found while adopting 0.2.0. No names or APIs change.

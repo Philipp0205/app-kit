@@ -20,6 +20,11 @@ function scratch(options) {
   fs.writeFileSync(path.join(tree, 'frontend', 'a.js'), 'a1\n');
   fs.mkdirSync(path.join(tree, 'frontend', 'sub'));
   fs.writeFileSync(path.join(tree, 'frontend', 'sub', 'b.css'), 'b1\n');
+  if (!o.noServer) {
+    fs.mkdirSync(path.join(tree, 'server', 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(tree, 'server', 'index.ts'), 's1\n');
+    fs.writeFileSync(path.join(tree, 'server', 'lib', 'x.ts'), 'x1\n');
+  }
 
   // The tarball has one top-level directory, like GitHub's.
   var top = path.join(dir, 'owner-app-kit-abc123');
@@ -191,5 +196,115 @@ test('sync refuses a non-empty dest without VERSION and leaves its files alone',
     assert.match(r.stderr, /no VERSION file/);
     assert.equal(fs.readFileSync(path.join(s.dest, 'index.html'), 'utf8'), 'app');
     assert.equal(fs.existsSync(path.join(s.dest, 'a.js')), false);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server copies server/ (not frontend/) into dest and writes VERSION', function () {
+  var s = scratch();
+  try {
+    var r = s.run(['--server', 'v9.9.9', s.dest]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'index.ts'), 'utf8'), 's1\n');
+    assert.equal(fs.readFileSync(path.join(s.dest, 'lib', 'x.ts'), 'utf8'), 'x1\n');
+    assert.equal(fs.readFileSync(path.join(s.dest, 'VERSION'), 'utf8'), 'v9.9.9');
+    assert.equal(fs.existsSync(path.join(s.dest, 'a.js')), false);
+    assert.equal(fs.existsSync(path.join(s.dest, 'sub')), false);
+    assert.deepEqual(fs.readdirSync(s.dest).sort(), ['VERSION', 'index.ts', 'lib']);
+    assert.match(s.calls(), /gh api repos\/Philipp0205\/app-kit\/tarball\/v9\.9\.9/);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server removes files that are gone from server/, and is idempotent', function () {
+  var s = scratch();
+  try {
+    assert.equal(s.run(['--server', 'v9.9.9', s.dest]).status, 0);
+    fs.writeFileSync(path.join(s.dest, 'old.ts'), 'stale');
+    fs.mkdirSync(path.join(s.dest, 'gone'));
+    fs.writeFileSync(path.join(s.dest, 'gone', 'y.ts'), 'stale');
+    assert.equal(s.run(['--server', 'v9.9.9', s.dest]).status, 0);
+    assert.equal(fs.existsSync(path.join(s.dest, 'old.ts')), false);
+    assert.equal(fs.existsSync(path.join(s.dest, 'gone')), false);
+    assert.deepEqual(fs.readdirSync(s.dest).sort(), ['VERSION', 'index.ts', 'lib']);
+
+    fs.rmSync(path.join(s.tree, 'server', 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(s.tree, 'server', 'index.ts'), 's2\n');
+    s.pack();
+    assert.equal(s.run(['--server', 'v9.9.9', s.dest]).status, 0);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'index.ts'), 'utf8'), 's2\n');
+    assert.equal(fs.existsSync(path.join(s.dest, 'lib')), false);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server refuses a non-empty dest without VERSION and leaves its files alone', function () {
+  var s = scratch();
+  try {
+    fs.mkdirSync(s.dest, { recursive: true });
+    fs.writeFileSync(path.join(s.dest, 'server.ts'), 'app');
+    var r = s.run(['--server', 'v9.9.9', s.dest]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /no VERSION file/);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'server.ts'), 'utf8'), 'app');
+    assert.equal(fs.existsSync(path.join(s.dest, 'index.ts')), false);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server rejects bad tags and wrong argument counts without any fetch', function () {
+  var s = scratch();
+  try {
+    assert.notEqual(s.run(['--server', '--evil', s.dest]).status, 0);
+    assert.notEqual(s.run(['--server', 'v9.9.9']).status, 0);
+    assert.notEqual(s.run(['--server']).status, 0);
+    assert.notEqual(s.run(['--server', 'v9.9.9', s.dest, 'extra']).status, 0);
+    var bad = s.run(['--server', 'v9;rm', s.dest]);
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /bad tag/);
+    assert.equal(s.calls(), '');
+    assert.equal(fs.existsSync(s.dest), false);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server falls back to git clone when gh is logged out', function () {
+  var s = scratch({ ghLoggedIn: false, gitWorks: true });
+  try {
+    var r = s.run(['--server', 'v9.9.9', s.dest]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'index.ts'), 'utf8'), 's1\n');
+    assert.equal(fs.readFileSync(path.join(s.dest, 'VERSION'), 'utf8'), 'v9.9.9');
+    assert.match(s.calls(), /git clone --quiet --depth 1 --branch v9\.9\.9/);
+  } finally { s.cleanup(); }
+});
+
+test('sync --server fails clearly when the tag has no server/ directory, and leaves dest alone', function () {
+  var s = scratch({ noServer: true });
+  try {
+    var r = s.run(['--server', 'v9.9.9', s.dest]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /tag 'v9\.9\.9' has no server\/ directory/);
+    assert.equal(fs.existsSync(s.dest), false);
+
+    // The old frontend mode still works on that same tag.
+    var front = s.run(['v9.9.9', s.dest]);
+    assert.equal(front.status, 0, front.stderr);
+    assert.equal(fs.readFileSync(path.join(s.dest, 'a.js'), 'utf8'), 'a1\n');
+  } finally { s.cleanup(); }
+});
+
+test('the original usage still copies frontend/ even when the tag also has server/', function () {
+  var s = scratch();
+  try {
+    var r = s.run(['v9.9.9', s.dest]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(fs.readdirSync(s.dest).sort(), ['VERSION', 'a.js', 'sub']);
+    assert.equal(fs.existsSync(path.join(s.dest, 'index.ts')), false);
+  } finally { s.cleanup(); }
+});
+
+test('the usage text shows both forms', function () {
+  var s = scratch();
+  try {
+    var r = s.run([]);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /usage: scripts\/sync\.sh <tag> <dest-dir>/);
+    assert.match(r.stderr, /scripts\/sync\.sh --server <tag> <dest-dir>/);
   } finally { s.cleanup(); }
 });

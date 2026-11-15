@@ -28,9 +28,11 @@ else
   echo "check.sh: shellcheck not found, skipping it" >&2
 fi
 
-# Unit tests (node:test, no dependencies).
+# Unit tests (node:test, no dependencies). The server tests are .ts files that
+# run on Node's type stripping (Node >= 22.18 or 24). They import every server
+# module, which is also the check that the .ts files load.
 if [ -d tests ]; then
-  node --test tests/*.test.mjs
+  node --test tests/*.test.mjs tests/server/*.test.ts
 fi
 
 echo "check.sh: ok"

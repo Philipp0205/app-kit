@@ -3,8 +3,9 @@
 Shared frontend helpers for Hangry (free-now), Loan some (loaner), and Extrablatt.
 
 - Plain JS and CSS for PWA install prompts, theme-color, and push. No build step, no runtime dependencies.
-- A TypeScript auth module for the two TypeScript apps.
-- Shared Playwright behaviour tests.
+- TypeScript server modules for the two TypeScript apps (`server/`): rate limiter, client key, time, HTTP, CSP, static files, health, graceful shutdown. `node:` built-ins only.
+- A TypeScript auth module for the two TypeScript apps (planned).
+- Shared Playwright behaviour tests (planned).
 
 Apps pin a released git tag, not a branch tip.
 
@@ -24,6 +25,7 @@ Apps pin a released git tag, not a branch tip.
 | `ak-toast.js` | `AppKit.toast`: short messages in `#ak-toasts`. |
 | `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges. No routing. |
 | `ak-nav.js` | `AppKit.nav.syncOverlayHistory`: Back closes the top overlay instead of leaving the app. |
+| `ak-whats-new.js` | `AppKit.whatsNew`: pure helpers for a "what's new" list (`validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate`, `newerSeen`). No DOM. The entry schema is in `docs/whats-new.md`. |
 
 Each script is a plain IIFE and adds only `window.AppKit`. See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system.
 
@@ -83,9 +85,99 @@ This repo is private. Apps copy the files with the sync script instead of instal
 
     scripts/sync.sh <tag> <dest-dir>
 
-It fetches the tag with `gh api repos/Philipp0205/app-kit/tarball/<tag>` (or `git clone --depth 1 --branch <tag>` if `gh` is not usable), copies `frontend/` into the destination, and writes `<dest-dir>/VERSION` with the tag. Files that are no longer in the kit are removed. It is safe to run again.
+It fetches the tag with `gh api repos/Philipp0205/app-kit/tarball/<tag>` (or `git clone --depth 1 --branch <tag>` if `gh` is not usable), copies `frontend/` into the destination, and writes `<dest-dir>/VERSION` with the tag. Files that are no longer in the kit are removed. It is safe to run again. For the TypeScript server modules, see "Syncing the TS apps" below.
 
 Copy `frontend/head.html` into the page head by hand. It is a snippet, not a file to serve.
+
+## Server modules (TS)
+
+`server/` holds the plumbing Hangry (free-now) and Loan some (loaner) both wrote by hand. It is TypeScript on `node:` built-ins only: no `package.json`, no dependencies, no build step. The apps keep their own route tables. The kit has no router and no request wrapper that swallows your routing.
+
+| Module | One line |
+| --- | --- |
+| `rate-limit.ts` | `createRateLimiter`: fixed window per key with `hit`, `resetIn`, a `maxKeys` bound and pruning. The clock is the `now` you pass in. |
+| `client-key.ts` | `clientKey(req)`: the rightmost `X-Forwarded-For` hop (Railway appends the real client), else the socket address. |
+| `time.ts` | `isoDate`, `addDays`, `isCalendarDate`, `daysBetween`, `isTimeZone`, `assertTimeZone`, `zonedParts`, `zonedDateTime` (DST safe), `endOfDay`. No label formatters. |
+| `http.ts` | `HttpError`, `SECURITY_HEADERS`, `sendJson`, `sendEmpty`, capped `readBody`, `readJson`, `sendError`. A body over the cap is drained and answered with 413. |
+| `csp.ts` | `buildCsp`: a CSP header from your own per-directive allowlists, strict defaults, throws on injection. |
+| `static.ts` | `serveStatic(root, options)`: GET and HEAD, no path escape (`..`, NUL, symlinks), SPA fallback, configurable caching. |
+| `health.ts` | `healthHandler`: `GET /api/health` is `{"ok":true}`, other methods 405, other paths untouched. |
+| `shutdown.ts` | `installGracefulShutdown`: closes the server on SIGTERM and SIGINT, force-exits after 8 s, runs your `onClose` once. |
+
+Full export list: `server/README.md`. The Java side of the same rules (limiter, client key, health, error JSON, security headers) is in `docs/java-conventions.md`.
+
+**Node version.** The files are plain `.ts` that run on Node's type stripping: Node >= 22.18, or 24 (the kit's own tests run on 24). Apps that run under `tsx` work too. The code uses only erasable syntax (no enums, namespaces or constructor parameter properties) and relative imports end in `.ts`.
+
+**Import.**
+
+    import { clientKey, createRateLimiter } from "./app-kit/index.ts";
+
+An app whose `tsconfig.json` type-checks these files needs `"allowImportingTsExtensions": true` (with `"noEmit": true`, or `"rewriteRelativeImportExtensions": true`), and `"module": "nodenext"` or similar. The kit's files are not compiled separately. They live in your source tree like your own.
+
+**Example.** One `node:http` server with the pieces wired together. The route table is the app's own:
+
+    import http from "node:http";
+    import {
+      buildCsp, clientKey, createRateLimiter, healthHandler, HttpError,
+      installGracefulShutdown, readJson, sendError, sendJson, serveStatic,
+    } from "./app-kit/index.ts";
+
+    const csp = buildCsp({
+      "script-src": ["'self'"],
+      "style-src": ["'self'", "'unsafe-inline'"],
+      "img-src": ["'self'", "data:"],
+      "connect-src": ["'self'"],
+    });
+    const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+    const files = serveStatic("public", { htmlCacheControl: "no-cache" });
+
+    const server = http.createServer(async (req, res) => {
+      try {
+        res.setHeader("content-security-policy", csp);
+        if (healthHandler(req, res)) return;
+
+        const { pathname } = new URL(req.url ?? "/", "http://localhost");
+        if (req.method === "POST" && pathname === "/api/feedback") {
+          if (!limiter.hit(clientKey(req), Date.now())) {
+            throw new HttpError(429, "slow down", "rate_limited");
+          }
+          const body = await readJson(req, { max: 4096 });
+          sendJson(res, 200, { received: Object.keys(body).length });
+          return;
+        }
+        if (await files(req, res, pathname)) return;
+        throw new HttpError(404, "not found");
+      } catch (error) {
+        sendError(res, error);
+      }
+    });
+
+    server.listen(3000, "0.0.0.0");
+    installGracefulShutdown({ server, onClose: () => db.close() });
+
+`healthHandler` and `serveStatic` answer or return `false`, so the app decides the order. `res.setHeader` before `sendJson` keeps the CSP, because `sendJson` only adds its own headers. `serveStatic` also sets the shared security headers. A 429 with `Retry-After` is a `sendJson(res, 429, { error }, { "retry-after": ... })` call using `limiter.resetIn`.
+
+### Syncing the TS apps
+
+The repo is private, and the apps copy-sync it. There are no git-tag installs and no GitHub token in CI. Run both commands on your own machine, where `gh` is logged in, and commit the result:
+
+    scripts/sync.sh v0.3.0 public/app-kit              # frontend/ into the static dir
+    scripts/sync.sh --server v0.3.0 src/app-kit        # server/ into the source tree
+
+`--server` works like the frontend mode: the same tag check, the same refusal of a non-empty destination without a `VERSION` file, the same `gh` then `git clone` fetch. It copies `server/` instead of `frontend/`, writes `src/app-kit/VERSION`, and removes files that are no longer in `server/`. A tag older than v0.3.0 has no `server/` and fails with `tag '...' has no server/ directory`. Each destination has its own `VERSION` file with the tag it came from, so the frontend and the server copies can be on different tags, but keep them equal where you can.
+
+Extrablatt (Java) does not take the TypeScript code. It uses the docs only: `docs/whats-new.md` for the changelog entry schema and `docs/java-conventions.md` for the limiter, client key, health and error conventions.
+
+### What's new
+
+`frontend/ak-whats-new.js` and `docs/whats-new.md`: a changelog entry is `{ id, date, title, bullets }`, newest first, with a stored "seen" id. The kit ships the helpers and the schema, no UI.
+
+    <script src="/app-kit/ak-whats-new.js"></script>
+    var entries = AppKit.whatsNew.normalizeEntries(json);
+    var fresh = AppKit.whatsNew.unseenEntries(entries, localStorage.getItem('seen'));
+    // an empty seen id gives every entry, an unknown seen id gives none
+
+The doc also maps Extrablatt's `{ releases: [...] }` changelog to this shape.
 
 ## Hangry (free-now)
 
@@ -179,4 +271,4 @@ Extrablatt has no install prompt today. To add one, include `install-prompt.css`
 
 ## Checks
 
-`scripts/check.sh` runs `node --check` on `frontend/*.js`, `bash -n` and `shellcheck` (if installed) on `scripts/*.sh`, and the tests in `tests/` with `node --test`.
+`scripts/check.sh` runs `node --check` on `frontend/*.js`, `bash -n` and `shellcheck` (if installed) on `scripts/*.sh`, and the tests with `node --test`: `tests/*.test.mjs` and the TypeScript server tests in `tests/server/*.test.ts` (Node type stripping, so Node >= 22.18 or 24).
