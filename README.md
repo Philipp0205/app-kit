@@ -73,7 +73,7 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
 
 - `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
 - `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open.
-- `AppKit.donate.button({ url, label })` and `AppKit.donate.show({ url, appName, text, amounts })`: `url` must be https on `paypal.me` or `www.paypal.com`, else it throws. `show` opens a sheet with a note, optional amount chips (`{url}/{amount}EUR`) and a "Donate with PayPal" link. It only links out; there are no payments in the kit. Needs `ak-dom.js` and `ak-sheet.js` first.
+- `AppKit.donate.button({ url, label })` and `AppKit.donate.show({ url, appName, text, amounts })`: `url` must be https on `paypal.me`, `www.paypal.me` or `www.paypal.com`, else it throws. `show` opens a sheet with a note, optional amount chips (`{url}/{amount}EUR`) and a "Donate with PayPal" link. It only links out; there are no payments in the kit. Needs `ak-dom.js` and `ak-sheet.js` first.
 - `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
 - `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is.
 - `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
