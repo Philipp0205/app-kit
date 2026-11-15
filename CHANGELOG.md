@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (0.4.0)
+## 0.4.0 (2026-11-15)
 
 Minor and additive: the auth module and a voluntary PayPal donate component. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Design and store contract: `docs/auth.md`.
 
@@ -10,7 +10,7 @@ Minor and additive: the auth module and a voluntary PayPal donate component. Not
 - Mandatory email rules: `signup` requires an email (`invalid_email` otherwise) and `setEmail` is how an existing user adds one. `needsEmail(user)` is true for an existing user without an email, and the app blocks everything but the add-email prompt. Recovery by email goes only to verified addresses, and `requestLostCode` answers `{ ok: true }` whatever the address, with the mail sent in the background and failures logged by error name only. "Unique among verified addresses" is the app's unique index: the kit reports `email_taken`.
 - Three small gaps from loaner, all additive: `sendJson` with an `undefined` body sends `null`, `readBody(req, maxBytes, { message? })` takes the 413 message, and `healthHandler(req, res, check?)` takes an optional check (a `Promise<boolean>`; a failing check answers `503 {"ok":false}` with nothing leaked). Without a check `healthHandler` is unchanged and synchronous.
 - Tests: `tests/server/auth.test.ts`, `auth-code.test.ts`, `mailer.test.ts` (with an in-memory store in `tests/server/auth-memory-store.ts`), and new cases in `http.test.ts`, `health.test.ts` and `index.test.ts`.
-- `consumeLostCode` rotates the recovery code by default and returns the new code once as `recoveryCode`. Apps that want the old code to keep working pass `rotateOnLostCode: false`. Still unreleased, so this is not a break against 0.3.0.
+- `consumeLostCode` rotates the recovery code by default and returns the new code once as `recoveryCode`. Apps that want the old code to keep working pass `rotateOnLostCode: false`. This is not a break against 0.3.0.
 - `frontend/ak-donate.js`: `AppKit.donate.button({ url, label })` (an `ak-btn`, default label "Donate") and `AppKit.donate.show({ url, appName, text, amounts })`, a voluntary tip sheet on `AppKit.sheet`. It has a grabber head, a short note (default English with `appName`, or `text`), optional amount chips and a "Donate with PayPal" link. Everything is built with `AppKit.h`, so text is never parsed as HTML. Load after `ak-dom.js` and `ak-sheet.js`; it throws a clear error if either is missing.
 - URL rule: `url` must be `https:` and the host must be exactly `paypal.me` or `www.paypal.com`. Anything else throws a `TypeError`.
 - Amounts: `amounts` is a non-empty array of positive finite numbers. A chip links to the url with one trailing slash stripped, plus `/{amount}EUR`. EUR is fixed.
