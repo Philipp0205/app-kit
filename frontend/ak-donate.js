@@ -19,8 +19,9 @@
  * (one trailing slash of url is dropped first). The main button links to url.
  * All links open in a new tab with rel="noopener noreferrer".
  *
- * url must be https and its host must be paypal.me or www.paypal.com. Anything
- * else throws a TypeError. Text is always set through AppKit.h, never as HTML.
+ * url must be https and its host must be paypal.me, www.paypal.me or
+ * www.paypal.com. Anything else throws a TypeError. Text is always set through
+ * AppKit.h, never as HTML.
  *
  * Load order: ak-dom.js, ak-sheet.js, ak-donate.js. Needs ak-components.css.
  * Plain ES5. The only global it adds is window.AppKit.
@@ -33,7 +34,7 @@
     return;
   }
 
-  var HOSTS = ['paypal.me', 'www.paypal.com'];
+  var HOSTS = ['paypal.me', 'www.paypal.me', 'www.paypal.com'];
 
   function needDeps() {
     if (typeof AppKit.h !== 'function') {
@@ -58,7 +59,7 @@
       throw new TypeError('AppKit.donate: url must use https');
     }
     if (HOSTS.indexOf(parsed.hostname.toLowerCase()) < 0) {
-      throw new TypeError('AppKit.donate: url host must be paypal.me or www.paypal.com');
+      throw new TypeError('AppKit.donate: url host must be paypal.me, www.paypal.me or www.paypal.com');
     }
     return url;
   }
