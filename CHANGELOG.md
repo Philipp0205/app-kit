@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.1 (unreleased)
+## 0.4.1 (2026-11-15)
 
 Patch. Additive. Fixes two gaps found while adopting 0.4.0 in free-now. No names or APIs change.
 
