@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (Unreleased)
+## 0.3.0 (2026-11-15)
 
 Minor and additive: "platform primitives". Nothing from 0.2.x changes its name or API. `scripts/sync.sh <tag> <dest-dir>` works as before.
 
@@ -20,7 +20,7 @@ Minor and additive: "platform primitives". Nothing from 0.2.x changes its name o
 - `README.md`: a "Server modules (TS)" section with a wired-together example, the sync commands for TS apps, and the `allowImportingTsExtensions` note.
 - Tests: `tests/server/*.test.ts` (rate limiter, client key, time with Hangry's DST cases, HTTP on a real `node:http` server, CSP, static, health, shutdown, and a check that `server/` uses only `node:` imports and erasable syntax), `tests/whats-new.test.mjs`, and `--server` cases in `tests/sync.test.mjs`. `scripts/check.sh` now also runs `tests/server/*.test.ts`.
 
-## 0.2.1 (unreleased)
+## 0.2.1 (2026-11-15)
 
 Patch. Additive. Fixes gaps found while adopting 0.2.0. No names or APIs change.
 
