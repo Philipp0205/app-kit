@@ -463,14 +463,34 @@ test("consumeLostCode starts a new session and keeps the other sessions by defau
   assert.equal(m.sessions.length, 2);
 });
 
-test("consumeLostCode does not change the recovery code", async () => {
+test("consumeLostCode rotates the recovery code by default and returns the new one once", async () => {
   const { auth, m, mailer } = setup();
   const row = verifiedUser(m);
+  const oldCode = generateRecoveryCode();
+  row.recoveryHash = hashSecret(oldCode);
+  await auth.requestLostCode({ email: "ann@example.com", ip: "1.1.1.1" });
+  await flush();
+  const r = await auth.consumeLostCode(tokenIn(mailer.sent[0]));
+  assert.ok(r.ok);
+  assert.match(r.recoveryCode ?? "", /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.equal(m.users.get("u1")?.recoveryHash, hashSecret(r.recoveryCode as string));
+  assert.deepEqual(await auth.loginByCode({ code: oldCode, ip: "1.1.1.1" }), { ok: false, reason: "invalid" });
+  assert.ok((await auth.loginByCode({ code: r.recoveryCode as string, ip: "1.1.1.1" })).ok);
+});
+
+test("rotateOnLostCode: false keeps the recovery code and returns no recoveryCode field", async () => {
+  const { auth, m, mailer } = setup({ rotateOnLostCode: false });
+  const row = verifiedUser(m);
+  const oldCode = generateRecoveryCode();
+  row.recoveryHash = hashSecret(oldCode);
   const hash = row.recoveryHash;
   await auth.requestLostCode({ email: "ann@example.com", ip: "1.1.1.1" });
   await flush();
-  await auth.consumeLostCode(tokenIn(mailer.sent[0]));
+  const r = await auth.consumeLostCode(tokenIn(mailer.sent[0]));
+  assert.ok(r.ok);
+  assert.deepEqual(Object.keys(r).sort(), ["ok", "token", "user"]);
   assert.equal(m.users.get("u1")?.recoveryHash, hash);
+  assert.ok((await auth.loginByCode({ code: oldCode, ip: "1.1.1.1" })).ok);
 });
 
 test("revokeOtherSessions: true removes the user's other sessions but not other users'", async () => {
@@ -496,9 +516,11 @@ test("consumeLostCode is invalid when the email changed after the link was issue
   // Changed behind the kit's back, so the link was not deleted.
   const row = m.users.get("u1");
   assert.ok(row);
+  const hash = row.recoveryHash;
   row.email = "changed@example.com";
   assert.deepEqual(await auth.consumeLostCode(tokenIn(mailer.sent[0])), { ok: false, reason: "invalid" });
   assert.equal(m.sessions.length, 0);
+  assert.equal(m.users.get("u1")?.recoveryHash, hash, "a failed consume does not rotate");
 });
 
 test("consumeLostCode is invalid when the address is no longer verified", async () => {
@@ -508,8 +530,11 @@ test("consumeLostCode is invalid when the address is no longer verified", async 
   await flush();
   const row = m.users.get("u1");
   assert.ok(row);
+  const hash = row.recoveryHash;
   row.emailVerifiedAt = null;
   assert.deepEqual(await auth.consumeLostCode(tokenIn(mailer.sent[0])), { ok: false, reason: "invalid" });
+  assert.equal(m.sessions.length, 0);
+  assert.equal(m.users.get("u1")?.recoveryHash, hash, "a failed consume does not rotate");
 });
 
 test("a verify link is not accepted as a lost-code link and the other way round", async () => {

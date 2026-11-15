@@ -56,6 +56,8 @@ export type AuthOptions = {
   normalize?: (input: string) => string | null;
   /** Lost-code consume also signs out the user's other sessions. Default false. */
   revokeOtherSessions?: boolean;
+  /** Lost-code consume also rotates the recovery code and returns the new one once. Default true. */
+  rotateOnLostCode?: boolean;
   /** Server-side log for mail failures. Receives a fixed message plus the error name, never a token, address or body. Default console.error. */
   log?: (message: string) => void;
 };
@@ -80,8 +82,10 @@ export type Auth = {
   >;
   /** Lost-code mail. The answer never depends on whether the address exists or is verified; the mail goes out without being awaited so timing does not tell either. Only verified addresses get a link. */
   requestLostCode(input: { email: string; ip: string }): Promise<{ ok: true } | { ok: false; reason: "rate_limited" }>;
-  /** Consumes a lost-code token (single use, 20 min) and starts a new session. Does not change the recovery code: the app then offers rotateCode. */
-  consumeLostCode(token: string): Promise<{ ok: true; user: AuthUser; token: string } | { ok: false; reason: "invalid" }>;
+  /** Consumes a lost-code token (single use, 20 min), starts a new session, and by default rotates the recovery code, returning the new code once as `recoveryCode` (the app shows it). Opt out with `rotateOnLostCode: false`. */
+  consumeLostCode(token: string): Promise<
+    { ok: true; user: AuthUser; token: string; recoveryCode?: string } | { ok: false; reason: "invalid" }
+  >;
 
   startSession(userId: string): Promise<{ token: string }>;
   /** The user for a session token, or undefined. Apps check needsEmail(user) here. */
@@ -116,6 +120,7 @@ export function createAuth(options: AuthOptions): Auth {
   const now = options.now ?? Date.now;
   const normalize = options.normalize ?? normalizeRecoveryCode;
   const revokeOthers = options.revokeOtherSessions ?? false;
+  const rotateOnLostCode = options.rotateOnLostCode ?? true;
   const log = options.log ?? ((message: string) => console.error(message));
 
   /** Logs a fixed message and the error name. Never the message, address or token. */
@@ -252,7 +257,10 @@ export function createAuth(options: AuthOptions): Auth {
       await store.deleteLinksForUser(user.id, "recover");
       const session = await newSession(user.id);
       if (revokeOthers) await store.deleteSessionsForUser(user.id, session.tokenHash);
-      return { ok: true, user, token: session.token };
+      if (!rotateOnLostCode) return { ok: true, user, token: session.token };
+      const recoveryCode = generateRecoveryCode();
+      await store.setRecoveryHash(user.id, hashSecret(recoveryCode));
+      return { ok: true, user, token: session.token, recoveryCode };
     },
 
     async startSession(userId) {

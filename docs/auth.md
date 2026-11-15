@@ -80,6 +80,8 @@ export type AuthOptions = {
   normalize?: (input: string) => string | null;
   /** Lost-code consume also signs out the user's other sessions. Default false. */
   revokeOtherSessions?: boolean;
+  /** Lost-code consume also rotates the recovery code and returns the new one once. Default true. */
+  rotateOnLostCode?: boolean;
   /** Server-side log for mail failures. Receives a fixed message plus the error name, never a token, address or body. Default console.error. */
   log?: (message: string) => void;
 };
@@ -104,8 +106,10 @@ export type Auth = {
   >;
   /** Lost-code mail. The answer never depends on whether the address exists or is verified; the mail goes out without being awaited so timing does not tell either. Only verified addresses get a link. */
   requestLostCode(input: { email: string; ip: string }): Promise<{ ok: true } | { ok: false; reason: "rate_limited" }>;
-  /** Consumes a lost-code token (single use, 20 min) and starts a new session. Does not change the recovery code: the app then offers rotateCode. */
-  consumeLostCode(token: string): Promise<{ ok: true; user: AuthUser; token: string } | { ok: false; reason: "invalid" }>;
+  /** Consumes a lost-code token (single use, 20 min), starts a new session, and by default rotates the recovery code, returning the new code once as `recoveryCode` (the app shows it). Opt out with `rotateOnLostCode: false`. */
+  consumeLostCode(token: string): Promise<
+    { ok: true; user: AuthUser; token: string; recoveryCode?: string } | { ok: false; reason: "invalid" }
+  >;
 
   startSession(userId: string): Promise<{ token: string }>;
   /** The user for a session token, or undefined. Apps check needsEmail(user) here. */
@@ -124,7 +128,7 @@ Email rules, do not mix up: `signup` and `setEmail` REJECT a missing or malforme
 
 Fire-and-forget mail: the lost-code send is started but not awaited. Wrap it so a rejection is caught and logged as a fixed message plus `error.name` only (never `error.message`, address or token); an unhandled rejection would fail `node --test`. Verify mail from `signup`/`setEmail` is awaited inside the same catch, so it also never throws. Tests flush with `await new Promise((r) => setImmediate(r))` before asserting. The "token never logged" test uses a mailer that throws an Error whose message contains the token, then asserts no captured log line contains the token.
 
-Design choice: consuming a lost-code link does NOT rotate the recovery code (per the auth plan: new session, other sessions kept unless `revokeOtherSessions`). Extrablatt rotates; the kit leaves that to the app calling `rotateCode`.
+Design choice: consuming a lost-code link rotates the recovery code by default (new session, and a new code returned once as `recoveryCode`, so the old code stops working). Pass `rotateOnLostCode: false` to leave the old code in place; the app can still call `rotateCode` itself in that case. Other sessions are kept unless `revokeOtherSessions`. A failed consume (invalid, expired, email changed, unverified) rotates nothing and starts no session.
 
 Not built (ideas): mail text localization or overrides, session-id passthrough, a `resendVerification` method (setEmail with the same address does it), name validation (the app owns it).
 
