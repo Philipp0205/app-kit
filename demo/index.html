@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" class="ak-status-strip">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>app-kit demo</title>
+<meta name="color-scheme" content="light dark">
+<!-- Same pattern as frontend/head.html. The colours match the page below. -->
+<meta name="theme-color" content="#17140f" media="(prefers-color-scheme: dark) and (max-width: 719px)">
+<meta name="theme-color" content="#f4eee1" media="(prefers-color-scheme: light) and (max-width: 719px)">
+<meta name="theme-color" content="#17140f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4eee1" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="../frontend/app-kit.css">
+<link rel="stylesheet" href="../frontend/install-prompt.css">
+<style>
+  :root {
+    --ak-bg: #f4eee1;
+    --ak-surface: #ebe3d0;
+    --ak-ink: #1b1a17;
+    --ak-line: rgba(27, 26, 23, 0.18);
+    --ak-accent: #0f6b6b;
+    --ak-accent-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ak-bg: #17140f;
+      --ak-surface: #26221b;
+      --ak-ink: #f1ecdf;
+      --ak-line: rgba(241, 236, 223, 0.22);
+      --ak-accent: #4fb3b3;
+      --ak-accent-ink: #0b1f1f;
+    }
+  }
+  /* Manual toggle. It wins over the system setting. */
+  :root[data-theme="light"] {
+    --ak-bg: #f4eee1; --ak-surface: #ebe3d0; --ak-ink: #1b1a17;
+    --ak-line: rgba(27, 26, 23, 0.18); --ak-accent: #0f6b6b; --ak-accent-ink: #ffffff;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --ak-bg: #17140f; --ak-surface: #26221b; --ak-ink: #f1ecdf;
+    --ak-line: rgba(241, 236, 223, 0.22); --ak-accent: #4fb3b3; --ak-accent-ink: #0b1f1f;
+    color-scheme: dark;
+  }
+
+  html { background: var(--ak-bg); color: var(--ak-ink); }
+  body {
+    margin: 0 auto;
+    max-width: 420px;
+    min-height: 100vh;
+    padding-top: var(--ak-safe-top);
+    padding-bottom: var(--ak-safe-bottom);
+    background: var(--ak-bg);
+    color: var(--ak-ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { padding: 16px; }
+  h1 { margin: 8px 0; font-size: 1.5rem; }
+  p { margin: 8px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  button.demo {
+    min-height: 44px;
+    padding: 0 16px;
+    border: 1px solid var(--ak-line);
+    border-radius: 10px;
+    background: var(--ak-surface);
+    color: var(--ak-ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  code { font-size: 0.9em; }
+  output { display: block; padding: 8px 12px; border-radius: 10px; background: var(--ak-surface); font-family: ui-monospace, monospace; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>app-kit demo</h1>
+  <p>A phone-sized page for the theme-color script and the install prompt.</p>
+  <div class="row">
+    <button class="demo" id="show" type="button">Show install prompt</button>
+    <button class="demo" id="toggle" type="button">Toggle light/dark</button>
+  </div>
+  <p>Bar colour now:</p>
+  <output id="bar">-</output>
+</main>
+
+<script src="../frontend/theme-color.js"></script>
+<script src="../frontend/install-prompt.js"></script>
+<script>
+  AppKit.themeColor.start({ media: ['(max-width: 719px)'] });
+  AppKit.installPrompt.init({
+    appName: 'app-kit demo',
+    dismiss: { days: 1 },
+    storageKey: 'ak-demo-install-dismissed'
+  });
+
+  function showBar() {
+    var meta = document.querySelector('meta[name="theme-color"]');
+    document.getElementById('bar').textContent = meta ? meta.getAttribute('content') : 'none';
+  }
+
+  document.getElementById('show').addEventListener('click', function () {
+    AppKit.installPrompt.show();
+  });
+
+  // The manual toggle changes the page colour, so the bar colour has to follow.
+  document.getElementById('toggle').addEventListener('click', function () {
+    var root = document.documentElement;
+    var dark = root.getAttribute('data-theme') === 'dark' ||
+      (!root.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    AppKit.themeColor.start();
+    showBar();
+  });
+
+  showBar();
+</script>
+</body>
+</html>
