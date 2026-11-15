@@ -13,6 +13,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="../frontend/ak-tokens.css">
+<link rel="stylesheet" href="../frontend/ak-components.css">
 <link rel="stylesheet" href="../frontend/app-kit.css">
 <link rel="stylesheet" href="../frontend/install-prompt.css">
 <style>
@@ -85,8 +87,14 @@
   </div>
   <p>Bar colour now:</p>
   <output id="bar">-</output>
+  <h2>Donate</h2>
+  <p>A voluntary tip sheet. The link is a fake demo address.</p>
+  <div class="row" id="donate"></div>
 </main>
 
+<script src="../frontend/ak-dom.js"></script>
+<script src="../frontend/ak-sheet.js"></script>
+<script src="../frontend/ak-donate.js"></script>
 <script src="../frontend/theme-color.js"></script>
 <script src="../frontend/install-prompt.js"></script>
 <script>
@@ -115,6 +123,12 @@
     AppKit.themeColor.start();
     showBar();
   });
+
+  var donateButton = AppKit.donate.button({ url: 'https://paypal.me/appkitdemo' });
+  donateButton.addEventListener('click', function () {
+    AppKit.donate.show({ url: 'https://paypal.me/appkitdemo', appName: 'app-kit demo', amounts: [3, 5, 10] });
+  });
+  document.getElementById('donate').appendChild(donateButton);
 
   showBar();
 </script>

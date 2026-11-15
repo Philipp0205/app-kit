@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Minor and additive. Nothing from 0.3.x changes its name or API.
+
+- `frontend/ak-donate.js`: `AppKit.donate.button({ url, label })` (an `ak-btn`, default label "Donate") and `AppKit.donate.show({ url, appName, text, amounts })`, a voluntary tip sheet on `AppKit.sheet`. It has a grabber head, a short note (default English with `appName`, or `text`), optional amount chips and a "Donate with PayPal" link. Everything is built with `AppKit.h`, so text is never parsed as HTML. Load after `ak-dom.js` and `ak-sheet.js`; it throws a clear error if either is missing.
+- URL rule: `url` must be `https:` and the host must be exactly `paypal.me` or `www.paypal.com`. Anything else throws a `TypeError`.
+- Amounts: `amounts` is a non-empty array of positive finite numbers. A chip links to the url with one trailing slash stripped, plus `/{amount}EUR`. EUR is fixed.
+- It only links out (`target="_blank"`, `rel="noopener noreferrer"`). No payments, no PayPal SDK, no tracking, no network calls.
+- `ak-components.css`: `.ak-donate-amounts` (wrapping chip row) and `.ak-donate-note`. No new colours. `.ak-chip` now sets `text-decoration: none`, so amount chips used as links have no underline.
+- `demo/index.html`: loads the design CSS and the sheet helpers, and has a Donate section with a fake `https://paypal.me/appkitdemo` link.
+- Tests: `tests/donate.test.mjs`. `tests/helpers/fake-dom.mjs` now gives the sandbox a `URL`.
+
 ## 0.3.0 (2026-11-15)
 
 Minor and additive: "platform primitives". Nothing from 0.2.x changes its name or API. `scripts/sync.sh <tag> <dest-dir>` works as before.

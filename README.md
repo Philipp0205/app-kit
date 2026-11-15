@@ -23,6 +23,7 @@ Apps pin a released git tag, not a branch tip.
 | `ak-dom.js` | `AppKit.h` (build elements, text is never parsed as HTML) and `AppKit.copyText`. |
 | `ak-sheet.js` | `AppKit.sheet.show`: a bottom sheet with scrim, swipe down, Escape. |
 | `ak-toast.js` | `AppKit.toast`: short messages in `#ak-toasts`. |
+| `ak-donate.js` | `AppKit.donate`: a voluntary PayPal tip button and sheet. It only links out. |
 | `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges. No routing. |
 | `ak-nav.js` | `AppKit.nav.syncOverlayHistory`: Back closes the top overlay instead of leaving the app. |
 | `ak-whats-new.js` | `AppKit.whatsNew`: pure helpers for a "what's new" list (`validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate`, `newerSeen`). No DOM. The entry schema is in `docs/whats-new.md`. |
@@ -65,12 +66,14 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
 
     <script src="/app-kit/ak-dom.js"></script>
     <script src="/app-kit/ak-sheet.js"></script>
+    <script src="/app-kit/ak-donate.js"></script>
     <script src="/app-kit/ak-toast.js"></script>
     <script src="/app-kit/ak-tabbar.js"></script>
     <script src="/app-kit/ak-nav.js"></script>
 
 - `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
 - `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open.
+- `AppKit.donate.button({ url, label })` and `AppKit.donate.show({ url, appName, text, amounts })`: `url` must be https on `paypal.me` or `www.paypal.com`, else it throws. `show` opens a sheet with a note, optional amount chips (`{url}/{amount}EUR`) and a "Donate with PayPal" link. It only links out; there are no payments in the kit. Needs `ak-dom.js` and `ak-sheet.js` first.
 - `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
 - `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is.
 - `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
