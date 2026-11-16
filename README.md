@@ -2,7 +2,7 @@
 
 Shared frontend helpers for Hangry (free-now), Loan some (loaner), and Extrablatt.
 
-- Plain JS and CSS for PWA install prompts, theme-color, and push. No build step, no runtime dependencies.
+- Plain JS and CSS for PWA install prompts and theme-color, plus a service worker script, its page-side register helper, and a manifest script. No push yet. No build step, no runtime dependencies.
 - TypeScript server modules for the two TypeScript apps (`server/`): rate limiter, client key, time, HTTP, CSP, static files, health, graceful shutdown. `node:` built-ins only.
 - A TypeScript auth module for the two TypeScript apps (`server/auth.ts`, see "Auth module" below).
 - Shared Playwright behaviour tests (planned).
@@ -27,8 +27,10 @@ Apps pin a released git tag, not a branch tip.
 | `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges. No routing. |
 | `ak-nav.js` | `AppKit.nav.syncOverlayHistory`: Back closes the top overlay instead of leaving the app. |
 | `ak-whats-new.js` | `AppKit.whatsNew`: pure helpers for a "what's new" list (`validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate`, `newerSeen`). No DOM. The entry schema is in `docs/whats-new.md`. |
+| `ak-sw.js` | `AppKitSW.setup`: the service worker, loaded with `importScripts` from the app's own `sw.js`. A worker script, not a page script. Adds only `self.AppKitSW`. |
+| `ak-sw-register.js` | `AppKit.sw.register` and `AppKit.sw.applyUpdate`: registers the worker and reports a waiting update. |
 
-Each script is a plain IIFE and adds only `window.AppKit`. See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system.
+Each script is a plain IIFE and adds only `window.AppKit` (`ak-sw.js` runs in a worker and adds only `self.AppKitSW`). See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system. `demo/sw/` is a small runnable service worker demo (`node demo/sw/serve.mjs`).
 
 ## Design
 
@@ -91,6 +93,14 @@ This repo is private. Apps copy the files with the sync script instead of instal
 It fetches the tag with `gh api repos/Philipp0205/app-kit/tarball/<tag>` (or `git clone --depth 1 --branch <tag>` if `gh` is not usable), copies `frontend/` into the destination, and writes `<dest-dir>/VERSION` with the tag. Files that are no longer in the kit are removed. It is safe to run again. For the TypeScript server modules, see "Syncing the TS apps" below.
 
 Copy `frontend/head.html` into the page head by hand. It is a snippet, not a file to serve.
+
+## Service worker and manifest
+
+`frontend/ak-sw.js` is a reusable service worker (network-first shell, cache-first runtime rules, `/api/` untouched, no automatic `skipWaiting`), `frontend/ak-sw-register.js` registers it and reports updates, and `scripts/manifest.mjs` writes `manifest.webmanifest`. Adoption steps, options, update flow and the manifest script: [docs/service-worker.md](docs/service-worker.md).
+
+    scripts/sync.sh v0.5.0 public/app-kit    # brings ak-sw.js and ak-sw-register.js
+
+Server notes: serve `sw.js` from the scope root with `Content-Type: text/javascript` and `Cache-Control: no-cache`, and `manifest.webmanifest` as `application/manifest+json`. Bump `?v=` on the manifest link when it changes. Apps already on Workbox (Hangry) keep their build.
 
 ## Server modules (TS)
 
@@ -299,4 +309,4 @@ Extrablatt has no install prompt today. To add one, include `install-prompt.css`
 
 ## Checks
 
-`scripts/check.sh` runs `node --check` on `frontend/*.js`, `bash -n` and `shellcheck` (if installed) on `scripts/*.sh`, and the tests with `node --test`: `tests/*.test.mjs` and the TypeScript server tests in `tests/server/*.test.ts` (Node type stripping, so Node >= 22.18 or 24).
+`scripts/check.sh` runs `node --check` on `frontend/*.js`, `bash -n` and `shellcheck` (if installed) on `scripts/*.sh`, and the tests with `node --test`: `tests/*.test.mjs` (including the service worker, register and manifest tests, which import `scripts/manifest.mjs`) and the TypeScript server tests in `tests/server/*.test.ts` (Node type stripping, so Node >= 22.18 or 24). It does not `node --check` `scripts/*.mjs`; the tests import the manifest script instead.

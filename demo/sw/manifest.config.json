@@ -1,0 +1,10 @@
+{
+  "name": "app-kit sw demo",
+  "short_name": "ak sw demo",
+  "description": "Demo for the app-kit service worker and manifest helper.",
+  "lang": "en",
+  "color": "#17140f",
+  "start_url": "/",
+  "scope": "/",
+  "publicDir": "."
+}
