@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 (unreleased)
+## 0.5.0 (2026-11-16)
 
 Minor and additive: a service worker script and a manifest helper. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Guide: `docs/service-worker.md`.
 
