@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 (unreleased)
+
+Minor and additive: a service worker script and a manifest helper. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Guide: `docs/service-worker.md`.
+
+- `frontend/ak-sw.js`: `AppKitSW.setup({ version, prefix, shell, networkOnly, runtime, offlineFallback })` for a worker script loaded with `importScripts`. Shell cache `prefix-shell-version` precached with `cache: 'reload'` requests, no `skipWaiting` on install. Fetch: non-GET, cross-origin and `Range` requests and `networkOnly` prefixes (default `/api/`) are not handled. Runtime rules (`cache-first` or `network-first`, own unversioned cache, only status 200 stored) come before the shell logic, which is network-first and only refreshes entries already in the shell cache, with an offline fallback page for navigations. Activate deletes every `prefix-*` cache that is not current, then claims. A `SKIP_WAITING` message calls `skipWaiting`. Based on page-match's worker. No push handlers (planned for v0.6.0).
+- `frontend/ak-sw-register.js`: `AppKit.sw.register` (never rejects, `null` when unsupported or failing) with `onUpdate({ registration, apply })` for a waiting worker under an existing controller, and `AppKit.sw.applyUpdate(registration)`, which posts `SKIP_WAITING` and reloads once.
+- `scripts/manifest.mjs`: writes `manifest.webmanifest` from a small JSON config (`name`, `color` required, unknown keys are an error). Both manifest colours come from one `color`. It checks that the three fixed icons exist, are PNGs and have the declared size, reports all problems, and writes nothing on failure (exit 1, usage mistakes exit 2). Not synced to apps: run it from a checkout of the tag. No icon generation.
+- `demo/sw/`: a runnable demo (`node demo/sw/serve.mjs`) with a version switch to try the update flow, and its generated manifest and icons.
+- `docs/service-worker.md` (new), and updates to `README.md` and `docs/pwa-bars.md`.
+- Tests: `tests/sw.test.mjs`, `tests/sw-register.test.mjs`, `tests/manifest.test.mjs`.
+
 ## 0.4.1 (2026-11-15)
 
 Patch. Additive. Fixes two gaps found while adopting 0.4.0 in free-now. No names or APIs change.

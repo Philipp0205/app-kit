@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" class="ak-status-strip" data-ak-scheme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>app-kit sw demo</title>
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#17140f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest?v=1">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/app-kit/ak-tokens.css">
+<link rel="stylesheet" href="/app-kit/ak-components.css">
+<link rel="stylesheet" href="/app-kit/app-kit.css">
+<style>
+  html, body { background: #17140f; }
+  body { margin: 0 auto; max-width: 420px; padding: var(--ak-safe-top) 16px var(--ak-safe-bottom); color: var(--ak-text); font: 16px/1.5 system-ui, sans-serif; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  output { display: block; padding: 8px 12px; border-radius: 10px; background: var(--ak-surface); font-family: ui-monospace, monospace; font-size: 0.85rem; word-break: break-all; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>app-kit sw demo</h1>
+  <p id="sw-status">sw: unsupported</p>
+  <div class="ak-banner" id="update-banner" hidden>
+    <span>Update available</span>
+    <button class="ak-btn" id="btn-update" type="button">Update</button>
+  </div>
+  <div class="row">
+    <button class="ak-btn" id="btn-api" type="button">fetch /api/time</button>
+    <button class="ak-btn" id="btn-vendor" type="button">fetch /vendor/blob.bin</button>
+  </div>
+  <output id="out">-</output>
+</main>
+<script src="/app-kit/ak-sw-register.js"></script>
+<script src="/demo.js"></script>
+</body>
+</html>

@@ -22,7 +22,8 @@ So a change to the manifest colours does not show up soon. Users have to
 reinstall the app to see it promptly.
 
 Set both manifest colours to the page colour. If the app is dark by default,
-use the dark page colour.
+use the dark page colour. `scripts/manifest.mjs` writes both manifest colours
+from one `color` (see `docs/service-worker.md`).
 
 ## Chrome 152 to 155
 
