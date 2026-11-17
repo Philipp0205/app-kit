@@ -2,7 +2,7 @@
 
 The kit ships one reusable service worker script, a page-side helper that reports updates, and a script that writes `manifest.webmanifest`. They replace the hand-written `sw.js` each app kept, with its hand-versioned cache name. The behaviour follows page-match's worker: network-first shell, cache-first vendor files, `/api/` never touched, no automatic `skipWaiting`.
 
-Zero dependencies, plain JS, no build step. Push is not part of this (planned for v0.6.0). Apps add their own `push` and `notificationclick` listeners.
+Zero dependencies, plain JS, no build step. Push is not part of this (planned for a later release). Apps add their own `push` and `notificationclick` listeners.
 
 ## Adopt it
 
@@ -89,6 +89,10 @@ An app may skip `apply()`: the waiting worker takes over when all tabs are close
 - Same origin only. The worker handles nothing cross-origin, and `importScripts('/app-kit/ak-sw.js')` must come from the same origin as well.
 - `demo/sw/serve.mjs` is a working reference for all of the above.
 
+## Data cache with `AppKit.swr`
+
+`ak-sw.js` leaves `/api/` network-only by default, so API JSON is never cached by the worker. `AppKit.swr` (`ak-swr.js`, see `docs/native-feel.md`) owns the data cache for the screens that want an instant first paint: it keeps the last JSON in `localStorage` and revalidates in the page. The two do not overlap. If you want swr's freshness rules, do not add a `runtime` rule for the same API URLs, or the worker would answer from its own cache and swr would revalidate against stale data.
+
 ## What not to cache
 
 - `/api` and anything per user: keep `networkOnly`, which is the default.
@@ -98,7 +102,7 @@ An app may skip `apply()`: the waiting worker takes over when all tabs are close
 
 ## Your own listeners
 
-Push is v0.6.0, or app-owned until then: add your own `push` and `notificationclick` listeners in `sw.js`. For a `fetch` listener of your own that should answer first, register it before calling `setup()`. The kit's listener then sees an event that is already answered, and its `respondWith` error is caught.
+Push is app-owned until the kit has it: add your own `push` and `notificationclick` listeners in `sw.js`. For a `fetch` listener of your own that should answer first, register it before calling `setup()`. The kit's listener then sees an event that is already answered, and its `respondWith` error is caught.
 
     importScripts('/app-kit/ak-sw.js');
     self.addEventListener('push', function (event) { /* ... */ });

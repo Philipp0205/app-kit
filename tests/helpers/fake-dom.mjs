@@ -47,7 +47,15 @@ class FakeNode {
     this.id = '';
     this.disabled = false;
     this.innerHTML = '';
+    this.scrollTop = 0;
+    this.scrollCalls = [];
+    this.rect = { top: 0, bottom: 0 };
   }
+  scrollTo(options) {
+    this.scrollCalls.push(options);
+    this.scrollTop = options && typeof options.top === 'number' ? options.top : 0;
+  }
+  getBoundingClientRect() { return this.rect; }
   get firstChild() { return this.childNodes[0] || null; }
   get children() { return this.childNodes.filter(function (n) { return n.nodeType === 1; }); }
   get textContent() {
@@ -169,7 +177,11 @@ function fakeStorage() {
  *   htmlBg, bodyBg   computed background colours
  *   metas        [{ content, media }] theme-color metas to put in the head
  *   userAgent, maxTouchPoints, standalone
+ *   innerWidth, innerHeight   viewport size (default 400 x 800)
  *   bodyless     no <body> yet
+ * Also: document.scrollingElement is <html>, nodes have scrollTop, scrollTo and
+ * getBoundingClientRect (node.rect), and env.fireDocument(type, event) passes
+ * an event object to the document listeners.
  */
 export function createEnv(options) {
   var o = options || {};
@@ -195,6 +207,7 @@ export function createEnv(options) {
   document.documentElement = html;
   document.head = head;
   document.body = body;
+  document.scrollingElement = html;
   document.readyState = 'complete';
   document.createElement = function (tag) { return new FakeNode(tag); };
   document.createTextNode = function (text) { return new FakeText(text); };
@@ -238,6 +251,8 @@ export function createEnv(options) {
   var matches = o.media || {};
   var sandbox = {
     document: document,
+    innerWidth: o.innerWidth || 400,
+    innerHeight: o.innerHeight || 800,
     navigator: {
       userAgent: o.userAgent || 'Mozilla/5.0 (Linux; Android 14) Chrome/130.0 Mobile Safari/537.36',
       maxTouchPoints: o.maxTouchPoints || 0
@@ -246,6 +261,11 @@ export function createEnv(options) {
     localStorage: fakeStorage(),
     addEventListener: function (type, fn) {
       (winListeners[type] = winListeners[type] || []).push(fn);
+    },
+    removeEventListener: function (type, fn) {
+      var list = winListeners[type] || [];
+      var at = list.indexOf(fn);
+      if (at >= 0) list.splice(at, 1);
     },
     getComputedStyle: function (el) { return { backgroundColor: el._bg || 'rgba(0, 0, 0, 0)' }; },
     requestAnimationFrame: function (fn) { frames.push(fn); return frames.length; },
@@ -302,8 +322,8 @@ export function createEnv(options) {
     fireWindow: function (type, event) {
       (winListeners[type] || []).slice().forEach(function (fn) { fn(event || {}); });
     },
-    fireDocument: function (type) {
-      (docListeners[type] || []).slice().forEach(function (fn) { fn({}); });
+    fireDocument: function (type, event) {
+      (docListeners[type] || []).slice().forEach(function (fn) { fn(event || {}); });
     },
     pendingFrames: function () { return frames.length; },
     flushFrames: function () {
