@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0 (unreleased)
+## 0.6.0 (2026-11-17)
 
 Minor and additive: "native feel". Nothing is breaking. Every piece is opt-in, so an app that syncs this version and changes nothing looks and behaves as on 0.5.0. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. Guide: `docs/native-feel.md`.
 
