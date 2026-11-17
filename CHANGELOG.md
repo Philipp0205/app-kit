@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0 (unreleased)
+
+Minor and additive: "native feel". Nothing is breaking. Every piece is opt-in, so an app that syncs this version and changes nothing looks and behaves as on 0.5.0. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. Guide: `docs/native-feel.md`.
+
+- `frontend/ak-transition.js`: `AppKit.transition.go(update, { direction })` runs `update` inside `document.startViewTransition` with `data-ak-nav` on `<html>` (`push`, `pop`; `none`, reduced motion and no support call `update()` directly), and returns a Promise that never throws synchronously. `AppKit.transition.swipeBack({ onBack, edge, threshold, target, force })` is an edge swipe back that only runs in an installed app (or with `force: true`) and returns `{ destroy }`.
+- `frontend/ak-view-transitions.css`: `@view-transition { navigation: auto; }` and a reduced-motion guard, for multi-page apps. Its own file because an at-rule cannot be class-scoped.
+- `frontend/ak-native.css`: under `html.ak-native` touch feel (no tap highlight, `touch-action: manipulation`, `user-select: none` on chrome only, instant `:active`), glass tab bar, the push and pop page slide, `html.ak-no-bounce` and `.ak-contain`. Also `html.ak-system-font`, `.ak-navbar` and `.ak-large-title`, the `.ak-ptr` indicator, and `.ak-skeleton*` classes. An `@supports` fallback gives the bars an opaque background without `backdrop-filter`. Reduced motion turns the animations off.
+- `frontend/ak-native.js`: `AppKit.largeTitle` (toggles `ak-collapsed` with `IntersectionObserver`, scroll fallback), `AppKit.scroll.memory` and `AppKit.scroll.toTop`, `AppKit.pullToRefresh`, and one passive `touchstart` no-op listener so iOS applies `:active`.
+- `frontend/ak-swr.js`: `AppKit.swr(key, fetcher, render, { maxAge, onError })` renders the `localStorage` copy (`ak-swr:` keys) at once, then the fresh value unless it is identical. Shared in-flight fetches, a broken `localStorage` means no cache. `AppKit.swr.clear(key)`.
+- `frontend/ak-sheet.js`: velocity close, `snaps` and `snap` options with `snapTo(index)` on the result, and `scaleBackground`. The old API is unchanged.
+- `frontend/ak-tabbar.js`: `onReselect`, `scrollTopOnReselect`, `scroller` and `rememberScroll`. Without them the tab bar is unchanged.
+- `frontend/ak-components.css`: the snap and scaled-background rules for the sheet (`.ak-sheet-snaps`, `.ak-sheet-behind`, `html.ak-sheet-scaled`), and `--ak-glass` for `html.eink`. `frontend/ak-tokens.css`: the new token `--ak-glass` for the dark and light schemes and both `data-ak-scheme` values. Existing token values are unchanged.
+- `demo/native/`: one phone-sized page with every piece. `?sheet=plain`, `?sheet=snap`, `?screen=detail` and `?skeleton=1` open each state.
+- Docs: `docs/native-feel.md` (new), and updates to `README.md`, `docs/service-worker.md` (how `AppKit.swr` and the worker fit together) and `docs/pwa-bars.md`. The push note in `docs/service-worker.md` no longer says v0.6.0.
+- Tests: `tests/transition.test.mjs`, `tests/sheet.test.mjs`, `tests/native.test.mjs`, `tests/swr.test.mjs`. `tests/helpers/fake-dom.mjs` gains scrolling, touch and rAF helpers for them.
+
 ## 0.5.0 (2026-11-16)
 
 Minor and additive: a service worker script and a manifest helper. Nothing is breaking. No existing name or API changes, and `scripts/sync.sh` works as before. Guide: `docs/service-worker.md`.

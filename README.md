@@ -29,8 +29,13 @@ Apps pin a released git tag, not a branch tip.
 | `ak-whats-new.js` | `AppKit.whatsNew`: pure helpers for a "what's new" list (`validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate`, `newerSeen`). No DOM. The entry schema is in `docs/whats-new.md`. |
 | `ak-sw.js` | `AppKitSW.setup`: the service worker, loaded with `importScripts` from the app's own `sw.js`. A worker script, not a page script. Adds only `self.AppKitSW`. |
 | `ak-sw-register.js` | `AppKit.sw.register` and `AppKit.sw.applyUpdate`: registers the worker and reports a waiting update. |
+| `ak-native.css` | Opt-in native feel under `html.ak-native`: touch feel, glass navbar and tab bar, large title, system font, pull to refresh indicator, page slide, skeleton classes. |
+| `ak-native.js` | `AppKit.largeTitle`, `AppKit.scroll.memory` and `.toTop`, `AppKit.pullToRefresh`. |
+| `ak-transition.js` | `AppKit.transition.go` (View Transitions with an instant fallback) and `.swipeBack` (edge swipe, installed apps only). |
+| `ak-view-transitions.css` | `@view-transition { navigation: auto; }` for multi-page apps. Link it on every page. |
+| `ak-swr.js` | `AppKit.swr` and `AppKit.swr.clear`: render the cached value at once, then the fresh one. |
 
-Each script is a plain IIFE and adds only `window.AppKit` (`ak-sw.js` runs in a worker and adds only `self.AppKitSW`). See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system. `demo/sw/` is a small runnable service worker demo (`node demo/sw/serve.mjs`).
+Each script is a plain IIFE and adds only `window.AppKit` (`ak-sw.js` runs in a worker and adds only `self.AppKitSW`). See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system. `demo/sw/` is a small runnable service worker demo (`node demo/sw/serve.mjs`). `demo/native/` shows the native feel pieces (serve the repo root and open `/demo/native/`).
 
 ## Design
 
@@ -74,10 +79,10 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
     <script src="/app-kit/ak-nav.js"></script>
 
 - `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
-- `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open.
+- `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open. Optional: `snaps`, `snap`, `scaleBackground`, and `snapTo(index)` on the result (see "Native feel").
 - `AppKit.donate.button({ url, label })` and `AppKit.donate.show({ url, appName, text, amounts })`: `url` must be https on `paypal.me`, `www.paypal.me` or `www.paypal.com`, else it throws. `show` opens a sheet with a note, optional amount chips (`{url}/{amount}EUR`) and a "Donate with PayPal" link. It only links out; there are no payments in the kit. Needs `ak-dom.js` and `ak-sheet.js` first.
 - `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
-- `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is.
+- `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is. Optional: `onReselect`, `scrollTopOnReselect`, `scroller`, `rememberScroll` (see "Native feel").
 - `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
 
 **Server pages (Extrablatt Kindle, legal, billing).** Include `ak-tokens.css` and `ak-components.css` only. No JS is needed. Add `class="eink"` to `<html>` for e-ink.
@@ -101,6 +106,15 @@ Copy `frontend/head.html` into the page head by hand. It is a snippet, not a fil
     scripts/sync.sh v0.5.0 public/app-kit    # brings ak-sw.js and ak-sw-register.js
 
 Server notes: serve `sw.js` from the scope root with `Content-Type: text/javascript` and `Cache-Control: no-cache`, and `manifest.webmanifest` as `application/manifest+json`. Bump `?v=` on the manifest link when it changes. Apps already on Workbox (Hangry) keep their build.
+
+## Native feel
+
+Opt-in pieces that make an installed app behave more like a phone app: page transitions and an edge swipe back, sheets with snaps and a scaled background, touch feel, glass bars with a large title, scroll memory, pull to refresh, and `AppKit.swr` with skeletons for instant screens. An app that syncs this and changes nothing looks and behaves as before. Link `ak-native.css` and add `class="ak-native"` to `<html>` to turn on the CSS. Guide, options and iOS limits: [docs/native-feel.md](docs/native-feel.md).
+
+    <link rel="stylesheet" href="/app-kit/ak-native.css">
+    <script src="/app-kit/ak-native.js"></script>
+    <script src="/app-kit/ak-transition.js"></script>
+    <script src="/app-kit/ak-swr.js"></script>
 
 ## Server modules (TS)
 
@@ -288,6 +302,14 @@ Init. Extrablatt skips the bar colour on its e-ink layout:
 Extrablatt has no install prompt today. To add one, include `install-prompt.css` and `install-prompt.js` and call `AppKit.installPrompt.init({ appName: 'Extrablatt' })` the same way as above.
 
 ## API
+
+Native feel globals (details in [docs/native-feel.md](docs/native-feel.md)):
+
+- `AppKit.transition.go(update, { direction })`: returns a Promise. `AppKit.transition.swipeBack({ onBack, edge, threshold, target, force })`: returns `{ destroy }`.
+- `AppKit.largeTitle(titleEl, { navbar, scroller })`: returns `{ destroy }`.
+- `AppKit.scroll.memory({ el })`: returns `{ save, restore, forget }`. `AppKit.scroll.toTop(el, { smooth })`.
+- `AppKit.pullToRefresh({ onRefresh, el, threshold })`: returns `{ destroy }`.
+- `AppKit.swr(key, fetcher, render, { maxAge, onError })`: returns a Promise. `AppKit.swr.clear(key)`.
 
 `AppKit.themeColor.start(opts)`
 

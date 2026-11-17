@@ -11,6 +11,11 @@ and what the kit cannot fix.
 - `html.ak-status-strip` in `app-kit.css` paints a strip under the status bar
   of an installed app, so scrolling text does not run under the clock.
 
+The glass bars from `ak-native.css` (`docs/native-feel.md`) do not change
+this. They set no `background` on `html` or `body`, so `theme-color.js` still
+reads the real page colour. `AppKit.sheet` with `scaleBackground` scales the app
+root, not `html` or `body`, for the same reason.
+
 ## Android bakes in the manifest colours
 
 When a user installs the app, Android bakes the manifest `theme_color` and

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" class="ak-native ak-system-font">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>app-kit native feel demo</title>
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="../../frontend/ak-tokens.css">
+<link rel="stylesheet" href="../../frontend/ak-components.css">
+<link rel="stylesheet" href="../../frontend/app-kit.css">
+<link rel="stylesheet" href="../../frontend/ak-native.css">
+<link rel="stylesheet" href="../../frontend/ak-view-transitions.css">
+<style>
+  html, body { background: var(--ak-bg); }
+  body { margin: 0; color: var(--ak-text); font: var(--ak-fs-lg)/1.45 var(--ak-font); }
+  #app { box-sizing: border-box; width: min(var(--ak-phone), 100%); min-height: 100vh; margin: 0 auto; padding-bottom: calc(var(--ak-tab) + 24px); background: var(--ak-bg); }
+  .demo-section { padding: var(--ak-s3) 20px 0; }
+  .demo-section h2 { margin: var(--ak-s4) 0 var(--ak-s2); color: var(--ak-muted); font-size: var(--ak-fs-md); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .demo-buttons { display: flex; flex-wrap: wrap; gap: var(--ak-s2); }
+  .demo-note { margin: var(--ak-s2) 0; color: var(--ak-muted); font-size: var(--ak-fs-md); }
+  .demo-skel-row { display: flex; align-items: center; gap: var(--ak-s3); padding: var(--ak-s3) 0; }
+  .demo-skel-row .demo-skel-text { flex: 1; min-width: 0; }
+  .demo-detail { box-sizing: border-box; width: min(var(--ak-phone), 100%); min-height: 100vh; margin: 0 auto; padding: var(--ak-safe-top) 0 24px; background: var(--ak-bg); }
+  .demo-sheet-body p { margin: 0 0 var(--ak-s3); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <section class="ak-screen" id="screen-main">
+    <header class="ak-navbar"><span class="ak-navbar-title" aria-hidden="true">Native feel</span></header>
+    <h1 class="ak-large-title" id="large-title">Native feel</h1>
+    <div id="tab-content"></div>
+  </section>
+
+  <section class="ak-screen demo-detail" id="screen-detail" hidden>
+    <div class="ak-screen-head">
+      <button class="ak-btn ak-btn-text" id="btn-back" type="button">Back</button>
+    </div>
+    <div class="demo-section">
+      <h1 class="ak-screen-title">Detail</h1>
+      <p class="demo-note">Pushed with AppKit.transition.go({ direction: 'push' }). Back pops it.</p>
+      <p class="demo-note"><strong>Demo only:</strong> the edge swipe back is forced on here (force: true). In an installed app it is on by itself. In a browser tab it stays off, because the browser owns that gesture.</p>
+    </div>
+  </section>
+</div>
+
+<!-- Outside #app: a transform on #app (sheet scaleBackground) would move fixed children. -->
+<div id="tabbar-host"></div>
+
+<script src="../../frontend/ak-native.js"></script>
+<script src="../../frontend/ak-sheet.js"></script>
+<script src="../../frontend/ak-tabbar.js"></script>
+<script src="../../frontend/ak-transition.js"></script>
+<script src="../../frontend/ak-swr.js"></script>
+<script src="demo.js"></script>
+</body>
+</html>
