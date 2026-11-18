@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0 (unreleased)
+
+Minor and additive: tab bar motion, sheet close-from-drag, and popup pop. Nothing is breaking. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. No new frontend file. Guide: `docs/native-feel.md`.
+
+- `frontend/ak-components.css`: tab bar motion that works without `html.ak-native`. `.ak-tab-icon` (width and height `--ak-tab-icon-size`), the icon dip on press (`.ak-tabbar .ak-tab:active .ak-tab-icon`, scale 0.9, with `--ak-duration`, `--ak-duration-press` and `--ak-ease-spring`), `.ak-tab-in` (`ak-tab-in`: label colour muted to text, `ak-tab-icon-in`: icon scale 0.86 to 1) and `.ak-page-in` (`ak-page-in`: opacity only, no layout shift). Under `prefers-reduced-motion: reduce` there is no tab-in, icon-in or page-in, no press transform and no icon transition.
+- `frontend/ak-components.css`: popup pop. `@keyframes ak-pop-in`, `ak-pop-out` and `ak-fade-out`, `.ak-pop` and `.ak-pop-out`. `.ak-toast` and `.ak-card-menu:not([hidden])` pop in by themselves. Only opacity and transform change. Under reduced motion it is a fade with no scale.
+- `frontend/ak-tokens.css`: new tokens `--ak-tab-icon-size` (26px), `--ak-pop-duration` (140ms) and `--ak-pop-ease`. Existing token values are unchanged.
+- `frontend/ak-native.css`: under `html.ak-native`, tab bar items are no longer dimmed to opacity 0.6 on press. A more specific `html.ak-native .ak-tabbar .ak-tab:active` rule keeps opacity at 1 and does not scale the button, so the icon dip from `ak-components.css` is what you see. Other buttons and `[role=button]` dim as before. Apps can drop their own override.
+- `frontend/ak-tabbar.js`: every icon gets `ak-tab-icon` (a DOM node gets the class added, a string is wrapped in `<span class="ak-tab-icon">`, no icon adds nothing). `update({ active })` to a different id adds `ak-tab-in` to the new tab and removes it on its own `animationend`. Not on the first render, an unchanged `active`, a re-select tap or with reduced motion. New helpers `AppKit.tabbar.animateIn(el)` and `AppKit.tabbar.animatePage(el)` for apps with their own tab bar. They work without calling `AppKit.tabbar`, and never throw. No new option.
+- `frontend/ak-sheet.js`: `close()` no longer clears the inline transform before closing, which made the sheet jump to rest. It keeps the current offset (partial drag, mid-open, half snap), then slides to `translateY(100%)` over `--ak-duration-sheet`. Reduced motion still removes at once.
+- `frontend/ak-dom.js`: `AppKit.pop.in(el)` and `AppKit.pop.out(el)`. `out` adds `ak-pop-out`, waits for `animationend` (140 ms fallback), then hides a `hidden` element or `.ak-card-menu`, or removes any other element. It returns a Promise and ignores a missing element.
+- `frontend/ak-toast.js`: a toast pops out after its stay time before it is removed. It uses `AppKit.pop.out` if `ak-dom.js` is loaded and does the same itself if not. Stay times (5000 ms for errors, else 2800 ms, or `ms`) are unchanged.
+- `demo/native/`: the tab icons show as `.ak-tab-icon`, a tab switch plays `.ak-page-in`, a "Show toast" button and a card menu opened with `AppKit.pop`. `?toast=1` and `?menu=1` open those states.
+- Docs: `docs/native-feel.md` (touch feel, "Tab bar motion", "Popups", sheets) and `README.md`.
+- Tests: tab bar, `AppKit.pop` and toast tests in `tests/design.test.mjs`, close-from-offset tests in `tests/sheet.test.mjs`, and CSS tests in `tests/native.test.mjs`. The `.ak-tab:active` dim test and the toast `runTimers` tests are updated. They now expect the out step, and a second `runTimers()` removes the toast.
+
 ## 0.6.0 (2026-11-17)
 
 Minor and additive: "native feel". Nothing is breaking. Every piece is opt-in, so an app that syncs this version and changes nothing looks and behaves as on 0.5.0. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. Guide: `docs/native-feel.md`.

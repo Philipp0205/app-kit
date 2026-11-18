@@ -2,7 +2,7 @@
 
 Optional pieces that make an installed app behave more like a phone app: page transitions, iOS-like sheets, touch feel, a large title, scroll memory, pull to refresh and instant screens. Zero dependencies, plain JS and CSS, no build step. Nothing here is on by default. An app that syncs this version and changes nothing looks and behaves as before.
 
-Demo: serve the repo root (`python3 -m http.server`) and open `/demo/native/`. `?sheet=plain`, `?sheet=snap`, `?screen=detail` and `?skeleton=1` open each state directly.
+Demo: serve the repo root (`python3 -m http.server`) and open `/demo/native/`. `?sheet=plain`, `?sheet=snap`, `?screen=detail`, `?skeleton=1`, `?toast=1` and `?menu=1` open each state directly.
 
 ## Opt in
 
@@ -15,6 +15,7 @@ Demo: serve the repo root (`python3 -m http.server`) and open `/demo/native/`. `
 | Instant screens | `ak-swr.js` | |
 | Sheet snaps, velocity close, scaled background | nothing new, `ak-sheet.js` and `ak-components.css` | options on `AppKit.sheet.show` |
 | Tab bar extras | nothing new, `ak-tabbar.js` | options on `AppKit.tabbar` |
+| Tab bar motion, popup pop | nothing new, `ak-components.css`, `ak-tabbar.js`, `ak-toast.js`, `ak-dom.js` | automatic on `AppKit.tabbar` and `AppKit.toast`, `.ak-pop` and `AppKit.pop` for your own popups |
 
 `ak-native.css` and `ak-view-transitions.css` are not imported by `app-kit.css` or `ak-components.css`. The app links them itself.
 
@@ -59,6 +60,7 @@ It only works in an installed app (`display-mode: standalone`, or `navigator.sta
 - Dragging the head moves between snaps. On release the sheet rests at the nearest snap, and a flick goes to the next snap in its direction. Dragging more than 72 px below the lowest snap, or a fast flick down from the lowest snap, closes.
 - `sheet.snapTo(index)` moves to a snap. It does nothing without snaps. The sheet is laid out at its highest snap and moved with a transform, so below the highest snap the lower content is off screen until the sheet is dragged up.
 - `scaleBackground`: an element (the app root) that scales down behind the sheet, iOS style. It gets `ak-sheet-behind` and `<html>` gets `ak-sheet-scaled`. The CSS is in `ak-components.css`. Keep the tab bar and toasts outside that element: a transform makes it the containing block of its `position: fixed` children. With reduced motion it does not scale. The kit never sets `html` or `body` background.
+- Sheets slide up on open and down on close (`--ak-duration-sheet`, 220 ms). Closing continues from where the sheet is: after a partial drag, in the middle of the open animation, or at the half snap, it slides down from that offset to off screen with no jump back to rest first. With reduced motion the sheet is removed at once.
 
 ## Touch feel
 
@@ -66,9 +68,37 @@ Everything below is under `html.ak-native`.
 
 - Tap highlight off on interactive elements, `touch-action: manipulation` on buttons, links, `[role=button]`, `.ak-tab` and labels (no 300 ms delay, no double-tap zoom).
 - `user-select: none` and `-webkit-touch-callout: none` on chrome only: buttons, `.ak-tab`, `.ak-tabbar`, `.ak-navbar`, `.ak-sheet-head`, `.ak-grabber`, `[role=button]`. Never on inputs, text areas, selects, editable elements or general text.
-- Instant press state: `:active` on buttons, `.ak-tab` and `[role=button]` goes to opacity 0.6 with no transition, then fades back. `.ak-pressable` dips with a small scale instead.
+- Instant press state: `:active` on buttons and `[role=button]` goes to opacity 0.6 with no transition, then fades back. `.ak-pressable` dips with a small scale instead. Tab bar items (`.ak-tabbar .ak-tab`) are the exception: they are not dimmed and the button itself does not scale (that would move the tap target). The icon dips to scale 0.9 instead, see "Tab bar motion".
 - `ak-native.js` adds one passive `touchstart` no-op listener on `document`. iOS Safari only applies `:active` when the page has a touch listener.
 - Bounce: `html.ak-no-bounce` sets `overscroll-behavior: none` on `html` and `body`. `.ak-contain` sets `overscroll-behavior: contain` on a scroller. There is no global rule.
+
+## Tab bar motion
+
+These rules are in `ak-components.css`, so they work without `html.ak-native` too.
+
+- `.ak-tab-icon`: the icon, sized `--ak-tab-icon-size` (26px) in width and height. `AppKit.tabbar` puts the class on every icon: a DOM node keeps its other classes and gets `ak-tab-icon` added, a string is wrapped in `<span class="ak-tab-icon">`, no icon means nothing is added.
+- Press: `.ak-tabbar .ak-tab:active .ak-tab-icon` scales to 0.9 (`--ak-duration-press`, ease-out). It springs back with `--ak-duration` and `--ak-ease-spring`.
+- Landing: when `update({ active })` switches to a different tab, the new `.ak-tab` gets `ak-tab-in` until its animation ends. The label colour goes from `--ak-muted` to `--ak-text` (180 ms) and the icon scales 0.86 to 1 (`ak-tab-icon-in`, 220 ms, `--ak-ease-spring`). It is not added on the first render, on an `update` with the same `active` (badge-only or re-render), when the active tab is tapped again, or with reduced motion. There is no option for it.
+- `.ak-page-in`: opacity 0 to 1 over 160 ms and nothing else, so scroll and map measurements do not move. The kit never sets it by itself. Put it on the page that was just shown.
+- For an app with its own tab bar and pages: `AppKit.tabbar.animateIn(el)` adds `ak-tab-in` and `AppKit.tabbar.animatePage(el)` adds `ak-page-in`, each removed on `animationend` (of the element itself). A second call while the class is on plays again. They work without calling `AppKit.tabbar({...})`, do nothing for a missing element or with reduced motion, and never throw.
+- Reduced motion: no tab-in, icon-in or page-in, no press transform and no icon transition.
+
+    var bar = AppKit.tabbar({ tabs: tabs, active: 'home', onSelect: function (id) {
+      show(id); bar.update({ active: id }); AppKit.tabbar.animatePage(document.getElementById('page'));
+    } });
+
+## Popups
+
+`.ak-pop` pops an element in: opacity 0 to 1 and scale 0.96 to 1, `--ak-pop-duration` (140 ms) with `--ak-pop-ease`, from `transform-origin: 50% 50%` (set another origin on your popup for a menu that opens from a corner). `.ak-pop-out` plays the reverse. Only opacity and transform change, so nothing shifts.
+
+- `AppKit.toast` pops in by itself. After its stay time (`ms`) it pops out and is removed when that ends. The stay time does not include the 140 ms.
+- `.ak-card-menu` pops in by itself whenever `hidden` is removed. It cannot pop out through CSS alone, because `[hidden]` is `display: none`.
+- `AppKit.pop.in(el)` (in `ak-dom.js`) removes `hidden`, adds `ak-pop` and plays it again if it was already on. `AppKit.pop.out(el)` adds `ak-pop-out`, waits for `animationend` of the element itself (140 ms fallback), then sets `hidden` on an element that had it or on an `.ak-card-menu`, and removes any other element from the DOM. It returns a Promise. Both ignore a missing element and never throw.
+- `ak-toast.js` uses `AppKit.pop.out` when `ak-dom.js` is loaded, and does the same by itself when it is not.
+- Reduced motion: fade only, no scale. `out` still fades.
+
+    AppKit.pop.in(menu);                    // show
+    AppKit.pop.out(menu).then(function () { /* menu is hidden now */ });
 
 ## System look
 
@@ -139,4 +169,4 @@ No `html.ak-native` needed, these are explicit classes: `.ak-skeleton` (block), 
 - The edge swipe works only in an installed app. In Safari the browser owns that gesture.
 - View Transitions: Safari 18+ and Chrome 111+ for `startViewTransition`. Cross-document transitions: Safari 18.2+ and Chrome 126+. Elsewhere `go` calls `update()` at once, and `ak-view-transitions.css` does nothing.
 - `backdrop-filter` is missing in some browsers: the bars fall back to an opaque background.
-- Reduced motion: no slide, no sheet or background scale, no shimmer or spinner animation, instant scroll.
+- Reduced motion: no slide, no sheet or background scale, no shimmer or spinner animation, instant scroll, no tab bar motion, popups fade without scale.

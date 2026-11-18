@@ -1,7 +1,9 @@
 /*
- * Demo for the v0.6.0 native feel pieces. Serve the repo root and open /demo/native/.
+ * Demo for the v0.7.0 native feel pieces (tab bar motion, sheet close, popup pop).
+ * Serve the repo root and open /demo/native/.
  * URL parameters, so each state can be opened directly:
  *   ?sheet=plain   ?sheet=snap   ?screen=detail   ?skeleton=1 (skeletons stay, no fetch)
+ *   ?toast=1 (shows a toast)   ?menu=1 (opens the card menu)
  */
 (function () {
   'use strict';
@@ -134,6 +136,33 @@
     });
   }
 
+  // ---------- popups ----------
+
+  var menu = null;
+
+  function menuNode() {
+    if (!menu) {
+      menu = h('div', { 'class': 'ak-card-menu demo-menu', id: 'demo-menu', hidden: '' }, [
+        h('button', { 'class': 'ak-card-menu-item', type: 'button', text: 'Rename' }),
+        h('button', { 'class': 'ak-card-menu-item', type: 'button', text: 'Share' }),
+        h('button', { 'class': 'ak-card-menu-item ak-card-menu-item-danger', type: 'button', text: 'Delete' })
+      ]);
+      Array.prototype.forEach.call(menu.querySelectorAll('button'), function (b) {
+        b.addEventListener('click', function () { AppKit.pop.out(menu); });
+      });
+    }
+    return menu;
+  }
+
+  function toggleMenu() {
+    var m = menuNode();
+    if (m.hasAttribute('hidden')) { AppKit.pop.in(m); } else { AppKit.pop.out(m); }
+  }
+
+  function showToast() {
+    AppKit.toast('Saved');
+  }
+
   // ---------- tabs ----------
 
   function renderHome() {
@@ -147,6 +176,13 @@
           button('Light / dark', toggleScheme)
         ]),
         h('p', { 'class': 'demo-note', text: 'Pull the list down to refresh. Tap the active tab to scroll to the top.' })
+      ]),
+      section('Popups', [
+        h('div', { 'class': 'demo-buttons' }, [
+          button('Show toast', showToast),
+          button('Menu', toggleMenu)
+        ]),
+        menuNode()
       ]),
       section('Skeleton, then swr', [feed]),
       section('List', [rows('Item', 30)])
@@ -193,6 +229,7 @@
       current = id;
       renderers[id]();
       bar.update({ active: id });
+      AppKit.tabbar.animatePage(content);
     }
   });
   document.getElementById('tabbar-host').appendChild(bar.el);
@@ -219,4 +256,6 @@
   if (params.get('screen') === 'detail') { showDetail('none'); }
   if (params.get('sheet') === 'snap') { openSnap(); }
   if (params.get('sheet') === 'plain') { openPlain(); }
+  if (params.get('toast') === '1') { showToast(); }
+  if (params.get('menu') === '1') { AppKit.pop.in(menuNode()); }
 })();
