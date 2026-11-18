@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 (unreleased)
+## 0.7.0 (2026-11-18)
 
 Minor and additive: tab bar motion, sheet close-from-drag, and popup pop. Nothing is breaking. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. No new frontend file. Guide: `docs/native-feel.md`.
 
