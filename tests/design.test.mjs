@@ -129,12 +129,42 @@ test('toast: an error is role=alert and lasts 5000ms, others 2800ms', function (
   assert.deepEqual(env.timers.map(function (t) { return t.ms; }), [5000, 2800]);
 });
 
-test('toast: opts.ms overrides, and the toast is removed after it', function () {
+test('toast: opts.ms overrides, then it pops out and is removed after the out animation', function () {
   var env = loaded(['ak-toast.js']);
   env.window.AppKit.toast('Quick', { ms: 100 });
   assert.equal(env.timers[0].ms, 100);
   env.runTimers();
-  assert.equal(env.document.getElementById('ak-toasts').children.length, 0);
+  var box = env.document.getElementById('ak-toasts');
+  assert.equal(box.children.length, 1, 'still there while it pops out');
+  assert.match(box.children[0].className, /\bak-pop-out\b/);
+  assert.equal(env.timers[0].ms, 140);
+  env.runTimers();
+  assert.equal(box.children.length, 0);
+});
+
+test('toast: without ak-dom.js an animationend from the toast removes it, one from a child does not', function () {
+  var env = loaded(['ak-toast.js']);
+  var el = env.window.AppKit.toast('x', { ms: 10 });
+  env.runTimers();
+  el.dispatch('animationend', { target: {} });
+  assert.ok(el.parentNode, 'a bubbled child event is ignored');
+  el.dispatch('animationend', { target: el });
+  assert.equal(el.parentNode, null);
+  env.runTimers();
+});
+
+test('toast: with ak-dom.js it uses AppKit.pop.out', function () {
+  var env = loaded(['ak-dom.js', 'ak-toast.js']);
+  var calls = 0;
+  var out = env.window.AppKit.pop.out;
+  env.window.AppKit.pop.out = function (el) { calls += 1; return out(el); };
+  var el = env.window.AppKit.toast('x', { ms: 10 });
+  env.runTimers();
+  assert.equal(calls, 1);
+  assert.match(el.className, /\bak-pop-out\b/);
+  assert.ok(el.parentNode);
+  env.runTimers();
+  assert.equal(el.parentNode, null);
 });
 
 test('toast: reuses the container', function () {
@@ -870,4 +900,288 @@ test('tabbar badge: no badge at the start means no label in the tabs', function 
   var bar = env.window.AppKit.tabbar({ tabs: TABS, active: 'now' });
   assert.equal(bar.el.querySelectorAll('.ak-badge').length, 0);
   assert.equal(bar.el.querySelectorAll('[aria-label]').length, 0);
+});
+
+// ---------- Tab bar motion ----------
+
+var REDUCED = { media: { '(prefers-reduced-motion: reduce)': true } };
+
+function motionBar(envOptions, barOptions) {
+  var env = loaded(['ak-tabbar.js'], envOptions);
+  var o = { tabs: TABS, active: 'now' };
+  Object.keys(barOptions || {}).forEach(function (k) { o[k] = barOptions[k]; });
+  var bar = env.window.AppKit.tabbar(o);
+  env.body.appendChild(bar.el);
+  return { env: env, bar: bar, tab: function (i) { return bar.el.querySelectorAll('.ak-tab')[i]; } };
+}
+
+function lit(t) {
+  return t.bar.el.querySelectorAll('.ak-tab-in').length;
+}
+
+test('tabbar motion: the first render has no ak-tab-in', function () {
+  var t = motionBar();
+  assert.equal(lit(t), 0);
+});
+
+test('tabbar motion: update to another tab adds ak-tab-in to the new tab only', function () {
+  var t = motionBar();
+  t.bar.update({ active: 'alerts' });
+  assert.equal(lit(t), 1);
+  assert.match(t.tab(2).className, /\bak-tab-in\b/);
+  assert.doesNotMatch(t.tab(0).className, /ak-tab-in/);
+  assert.equal(t.tab(2).className, 'ak-tab ak-tab-in');
+});
+
+test('tabbar motion: the same active, or a badge-only update, does not add it again', function () {
+  var t = motionBar();
+  t.bar.update({ active: 'now' });
+  t.bar.update({ badge: { alerts: 2 } });
+  assert.equal(lit(t), 0);
+  t.bar.update({ active: 'plans' });
+  t.tab(1).dispatch('animationend', { target: t.tab(1), animationName: 'ak-tab-in' });
+  assert.equal(lit(t), 0);
+  t.bar.update({ active: 'plans' });
+  t.bar.update({ badge: { alerts: 5 } });
+  assert.equal(lit(t), 0);
+});
+
+test('tabbar motion: a second update with the same active does not retrigger a running animation', function () {
+  var t = motionBar();
+  t.bar.update({ active: 'plans' });
+  var listeners = t.tab(1).listeners.animationend.length;
+  t.bar.update({ active: 'plans' });
+  assert.equal(t.tab(1).listeners.animationend.length, listeners);
+  assert.equal(lit(t), 1);
+});
+
+test('tabbar motion: tapping the active tab does not add it, also after an update switched', function () {
+  var t = motionBar();
+  t.tab(0).click();
+  assert.equal(lit(t), 0);
+  t.bar.update({ active: 'plans' });
+  t.tab(1).dispatch('animationend', { target: t.tab(1), animationName: 'ak-tab-in' });
+  t.tab(1).click();
+  assert.equal(lit(t), 0);
+});
+
+test('tabbar motion: a tap alone does not add it, the app has not switched yet', function () {
+  var t = motionBar();
+  t.tab(2).click();
+  assert.equal(lit(t), 0);
+});
+
+test('tabbar motion: animationend on the tab removes the class, one from the icon does not', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var icon = env.document.createElement('span');
+  var bar = env.window.AppKit.tabbar({ tabs: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B', icon: icon }], active: 'a' });
+  var tab = bar.el.querySelectorAll('.ak-tab')[1];
+  bar.update({ active: 'b' });
+  assert.match(tab.className, /ak-tab-in/);
+  tab.dispatch('animationend', { target: icon, animationName: 'ak-tab-icon-in' });
+  assert.match(tab.className, /ak-tab-in/, 'the icon animation does not end the tab animation');
+  tab.dispatch('animationend', { target: tab, animationName: 'ak-tab-icon-in' });
+  assert.match(tab.className, /ak-tab-in/, 'another animation name on the tab is ignored');
+  tab.dispatch('animationend', { target: tab, animationName: 'ak-tab-in' });
+  assert.doesNotMatch(tab.className, /ak-tab-in/);
+  assert.equal((tab.listeners.animationend || []).length, 0);
+});
+
+test('tabbar motion: reduced motion adds no class on update', function () {
+  var t = motionBar(REDUCED);
+  t.bar.update({ active: 'alerts' });
+  assert.equal(lit(t), 0);
+  assert.equal(t.tab(2).getAttribute('aria-current'), 'page');
+});
+
+test('tabbar motion: animateIn and animatePage add the class and clear it on animationend', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var tab = env.document.createElement('button');
+  var page = env.document.createElement('div');
+  page.className = 'page';
+  env.window.AppKit.tabbar.animateIn(tab);
+  env.window.AppKit.tabbar.animatePage(page);
+  assert.equal(tab.className, 'ak-tab-in');
+  assert.equal(page.className, 'page ak-page-in');
+  tab.dispatch('animationend', { target: tab, animationName: 'ak-tab-in' });
+  page.dispatch('animationend', { target: page, animationName: 'ak-page-in' });
+  assert.equal(tab.className, '');
+  assert.equal(page.className, 'page');
+});
+
+test('tabbar motion: a second animatePage while the class is on plays again, with one listener', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var page = env.document.createElement('div');
+  env.window.AppKit.tabbar.animatePage(page);
+  var reflows = 0;
+  Object.defineProperty(page, 'offsetWidth', { get: function () { reflows += 1; return 0; } });
+  env.window.AppKit.tabbar.animatePage(page);
+  assert.equal(reflows, 1, 'removed, reflowed, added');
+  assert.equal(page.className, 'ak-page-in');
+  assert.equal(page.listeners.animationend.length, 1);
+  page.dispatch('animationend', { target: page });
+  assert.equal(page.className, '');
+});
+
+test('tabbar motion: the helpers are no-ops without an element, with reduced motion, and never throw', function () {
+  var env = loaded(['ak-tabbar.js']);
+  env.window.AppKit.tabbar.animateIn(null);
+  env.window.AppKit.tabbar.animatePage(undefined);
+  env.window.AppKit.tabbar.animateIn({});
+  var reduced = loaded(['ak-tabbar.js'], REDUCED);
+  var tab = reduced.document.createElement('button');
+  reduced.window.AppKit.tabbar.animateIn(tab);
+  reduced.window.AppKit.tabbar.animatePage(tab);
+  assert.equal(tab.className, '');
+});
+
+test('tabbar motion: string icons are wrapped in .ak-tab-icon, node icons get the class', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var node = env.document.createElement('svg');
+  node.className = 'mine';
+  var already = env.document.createElement('i');
+  already.className = 'ak-tab-icon x';
+  var bar = env.window.AppKit.tabbar({
+    tabs: [
+      { id: 'a', label: 'A', icon: 'A' },
+      { id: 'b', label: 'B', icon: node },
+      { id: 'c', label: 'C', icon: already },
+      { id: 'd', label: 'D' }
+    ],
+    active: 'a'
+  });
+  var tabs = bar.el.querySelectorAll('.ak-tab');
+  var wrapped = tabs[0].querySelector('.ak-tab-icon');
+  assert.equal(wrapped.tagName, 'SPAN');
+  assert.equal(wrapped.textContent, 'A');
+  assert.equal(tabs[0].childNodes[0], wrapped, 'no bare text node');
+  assert.equal(node.className, 'mine ak-tab-icon');
+  assert.equal(tabs[1].childNodes[0], node);
+  assert.equal(already.className, 'ak-tab-icon x', 'not added twice');
+  assert.equal(tabs[3].querySelector('.ak-tab-icon'), null);
+  assert.equal(tabs[3].childNodes.length, 1, 'only the label');
+  assert.equal(tabs[0].querySelector('.ak-tab-label').textContent, 'A');
+});
+
+test('tabbar motion: an SVG icon whose className is not a string still gets ak-tab-icon', function () {
+  var env = loaded(['ak-tabbar.js']);
+  var icon = env.document.createElement('svg');
+  var current = 'glyph';
+  Object.defineProperty(icon, 'className', {
+    configurable: true,
+    get: function () { return { baseVal: current }; },
+    set: function () { throw new Error('className is not a string on SVG'); }
+  });
+  icon.getAttribute = function (name) { return name === 'class' ? current : null; };
+  icon.setAttribute = function (name, value) { if (name === 'class') current = String(value); };
+  env.window.AppKit.tabbar({ tabs: [{ id: 'now', label: 'Now', icon: icon }], active: 'now' });
+  assert.match(current, /\bglyph\b/);
+  assert.match(current, /\bak-tab-icon\b/);
+});
+
+// ---------- AppKit.pop ----------
+
+function popEnv(options) {
+  var env = loaded(['ak-dom.js'], options);
+  env.make = function (cls, hidden) {
+    var el = env.document.createElement('div');
+    el.className = cls || '';
+    if (hidden) el.setAttribute('hidden', '');
+    var parent = env.document.createElement('div');
+    parent.appendChild(el);
+    return el;
+  };
+  return env;
+}
+
+test('pop.in: removes hidden, adds .ak-pop, and keeps other classes', function () {
+  var env = popEnv();
+  var el = env.make('ak-card-menu', true);
+  env.window.AppKit.pop.in(el);
+  assert.equal(el.hasAttribute('hidden'), false);
+  assert.equal(el.className, 'ak-card-menu ak-pop');
+});
+
+test('pop.in: when the class is already on it plays again, and drops a left-over out class', function () {
+  var env = popEnv();
+  var el = env.make('ak-pop ak-pop-out');
+  env.window.AppKit.pop.in(el);
+  assert.equal(el.className, 'ak-pop');
+  var reflows = 0;
+  Object.defineProperty(el, 'offsetWidth', { get: function () { reflows += 1; return 0; } });
+  env.window.AppKit.pop.in(el);
+  assert.equal(reflows, 1, 'removed, reflowed, added');
+  assert.equal(el.className, 'ak-pop');
+});
+
+test('pop.out: waits for the animation, then hides a menu and leaves it in the DOM', async function () {
+  var env = popEnv();
+  var menu = env.make('ak-card-menu ak-pop');
+  var done = false;
+  var p = env.window.AppKit.pop.out(menu).then(function () { done = true; });
+  await Promise.resolve();
+  assert.equal(done, false);
+  assert.match(menu.className, /ak-pop-out/);
+  assert.equal(menu.hasAttribute('hidden'), false, 'not hidden while it animates');
+  assert.equal(env.timers[0].ms, 140);
+  menu.dispatch('animationend', { target: menu });
+  await p;
+  assert.equal(menu.hasAttribute('hidden'), true);
+  assert.doesNotMatch(menu.className, /ak-pop-out/);
+  assert.ok(menu.parentNode);
+  env.runTimers(); // the fallback timer after the event is harmless
+  assert.ok(menu.parentNode);
+});
+
+test('pop.out: an element that has hidden keeps it, loses the out class, and stays in the DOM', async function () {
+  var env = popEnv();
+  var el = env.make('mine ak-pop', true);
+  var p = env.window.AppKit.pop.out(el);
+  env.runTimers();
+  await p;
+  assert.equal(el.getAttribute('hidden'), '');
+  assert.equal(el.className, 'mine ak-pop');
+  assert.ok(el.parentNode);
+});
+
+test('pop.out: the 140ms fallback removes a generic node, and a child animationend does not', async function () {
+  var env = popEnv();
+  var el = env.make('');
+  var parent = el.parentNode;
+  var p = env.window.AppKit.pop.out(el);
+  assert.equal(el.className, 'ak-pop ak-pop-out');
+  el.dispatch('animationend', { target: {} });
+  assert.equal(el.parentNode, parent, 'a bubbled child event is ignored');
+  env.runTimers();
+  await p;
+  assert.equal(el.parentNode, null);
+});
+
+test('pop.out: under reduced motion it still waits, and uses no transform from script', async function () {
+  var env = popEnv(REDUCED);
+  var el = env.make('');
+  var p = env.window.AppKit.pop.out(el);
+  assert.ok(el.parentNode);
+  assert.equal(el.style.transform, undefined);
+  env.runTimers();
+  await p;
+  assert.equal(el.parentNode, null);
+  assert.equal(el.style.transform, undefined);
+});
+
+test('pop: null and undefined are safe, and out resolves', async function () {
+  var env = popEnv();
+  env.window.AppKit.pop.in(null);
+  env.window.AppKit.pop.in(undefined);
+  await env.window.AppKit.pop.out(null);
+  await env.window.AppKit.pop.out(undefined);
+  env.runTimers();
+});
+
+test('pop.out: an element with no parent does not throw', async function () {
+  var env = popEnv();
+  var el = env.document.createElement('div');
+  var p = env.window.AppKit.pop.out(el);
+  env.runTimers();
+  await p;
 });

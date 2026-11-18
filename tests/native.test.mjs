@@ -734,11 +734,26 @@ test('css native: user-select none is never put on inputs, text areas, selects, 
 
 test('css native: the press state is instant, and the pressable dips', function () {
   var rules = rulesOf(readCss('ak-native.css'));
-  var pressed = bodyOf(rules, 'html.ak-native .ak-tab:active');
-  assert.match(pressed, /opacity:\s*0\.6/);
-  assert.match(pressed, /transition:\s*none/);
   assert.match(bodyOf(rules, 'html.ak-native .ak-pressable:active'), /scale\(/);
   assert.match(bodyOf(rules, 'html.ak-native button:not(:disabled, .ak-scrim):active'), /opacity:\s*0\.6/);
+  assert.match(bodyOf(rules, 'html.ak-native [role="button"]:active'), /opacity:\s*0\.6/);
+  assert.match(bodyOf(rules, 'html.ak-native button:not(:disabled, .ak-scrim):active'), /transition:\s*none/);
+});
+
+test('css native: tab bar tabs are not dimmed, the icon dip stays', function () {
+  var css = readCss('ak-native.css');
+  var rules = rulesOf(css);
+  var tab = bodyOf(rules, 'html.ak-native .ak-tabbar .ak-tab:active');
+  assert.match(tab, /opacity:\s*1\b/);
+  assert.doesNotMatch(tab, /scale\(/, 'the button itself does not scale');
+  assert.doesNotMatch(tab, /opacity:\s*0\.6/);
+  // It comes after the dim rule and is more specific, so it wins.
+  assert.ok(css.indexOf('html.ak-native .ak-tabbar .ak-tab:active') > css.indexOf('html.ak-native .ak-tab:active'));
+  // The plain tab selector may still be in the dim list: the override handles it.
+  var dim = rules.filter(function (r) { return /opacity:\s*0\.6/.test(r.body); });
+  assert.ok(dim.length > 0);
+  // ak-native.css leaves the icon alone: it dips from ak-components.css.
+  assert.doesNotMatch(css, /\.ak-tab-icon/);
 });
 
 test('css native: bounce helpers', function () {
@@ -889,4 +904,112 @@ test('css components: sheet snaps and scaleBackground rules, guarded for reduced
   var off = rules.filter(function (r) { return r.prelude === '.ak-sheet-behind' && r.atrules.length === 1; })[0];
   assert.match(off.body, /transition:\s*none/);
   assert.doesNotMatch(css, /ak-sheet-scaled[^{]*\{[^}]*background/);
+});
+
+// The text inside @keyframes name { ... }.
+function keyframes(css, name) {
+  var start = css.indexOf('@keyframes ' + name + ' ');
+  assert.ok(start >= 0, 'no @keyframes ' + name);
+  var open = css.indexOf('{', start);
+  var depth = 0;
+  for (var i = open; i < css.length; i++) {
+    if (css[i] === '{') depth++;
+    if (css[i] === '}') {
+      depth--;
+      if (depth === 0) return css.slice(open + 1, i);
+    }
+  }
+  throw new Error('unbalanced @keyframes ' + name);
+}
+
+function declaredProps(body) {
+  var props = [];
+  body.replace(/([\w-]+)\s*:/g, function (m, p) { props.push(p); return m; });
+  return props.filter(function (p, i) { return props.indexOf(p) === i; }).sort();
+}
+
+test('css tab bar: --ak-tab-icon-size is 26px and .ak-tab-icon uses it', function () {
+  assert.match(readCss('ak-tokens.css'), /--ak-tab-icon-size:\s*26px;/);
+  var body = bodyOf(rulesOf(readCss('ak-components.css')), '.ak-tab-icon');
+  assert.match(body, /width:\s*var\(--ak-tab-icon-size\)/);
+  assert.match(body, /height:\s*var\(--ak-tab-icon-size\)/);
+});
+
+test('css tab bar: the icon dip uses the kit tokens and works without html.ak-native', function () {
+  var css = readCss('ak-components.css');
+  var rules = rulesOf(css);
+  var base = bodyOf(rules, '.ak-tabbar .ak-tab .ak-tab-icon');
+  assert.match(base, /transition:\s*transform var\(--ak-duration\) var\(--ak-ease-spring\)/);
+  var press = bodyOf(rules, '.ak-tabbar .ak-tab:active .ak-tab-icon');
+  assert.match(press, /transform:\s*scale\(0\.9\)/);
+  assert.match(press, /transition-duration:\s*var\(--ak-duration-press\)/);
+  assert.match(press, /transition-timing-function:\s*ease-out/);
+  rules.forEach(function (r) {
+    if (/\.ak-tab-icon/.test(r.prelude)) assert.doesNotMatch(r.prelude, /ak-native/);
+  });
+  var tokens = readCss('ak-tokens.css');
+  assert.match(tokens, /--ak-ease-spring:\s*cubic-bezier\(0\.3, 1\.45, 0\.6, 1\)/);
+  assert.match(tokens, /--ak-duration:\s*120ms/);
+  assert.match(tokens, /--ak-duration-press:\s*80ms/);
+});
+
+test('css tab bar: tab-in, tab-icon-in and page-in keyframes, motion only when allowed', function () {
+  var css = readCss('ak-components.css');
+  var rules = rulesOf(css);
+  assert.match(keyframes(css, 'ak-tab-in'), /from\s*\{\s*color:\s*var\(--ak-muted\)/);
+  assert.match(keyframes(css, 'ak-tab-in'), /to\s*\{\s*color:\s*var\(--ak-text\)/);
+  assert.match(keyframes(css, 'ak-tab-icon-in'), /scale\(0\.86\)[\s\S]*scale\(1\)/);
+  assert.deepEqual(declaredProps(keyframes(css, 'ak-page-in')), ['opacity'], 'page-in is opacity only');
+  var tabIn = rules.filter(function (r) { return r.prelude === '.ak-tab.ak-tab-in' && /animation:\s*ak-tab-in 180ms ease-out/.test(r.body); })[0];
+  var iconIn = rules.filter(function (r) { return r.prelude === '.ak-tab.ak-tab-in .ak-tab-icon' && /ak-tab-icon-in 220ms var\(--ak-ease-spring\)/.test(r.body); })[0];
+  var pageIn = rules.filter(function (r) { return r.prelude === '.ak-page-in' && /animation:\s*ak-page-in 160ms ease-out/.test(r.body); })[0];
+  [tabIn, iconIn, pageIn].forEach(function (r) {
+    assert.ok(r, 'animation rule');
+    assert.deepEqual(r.atrules, ['@media (prefers-reduced-motion: no-preference)']);
+  });
+});
+
+test('css tab bar: reduced motion has no press transform, no icon transition, no tab-in or page-in', function () {
+  var rules = rulesOf(readCss('ak-components.css'));
+  var reduced = rules.filter(function (r) { return r.atrules.indexOf('@media (prefers-reduced-motion: reduce)') >= 0; });
+  function find(selector) {
+    var hit = reduced.filter(function (r) { return splitTop(r.prelude).indexOf(selector) >= 0; });
+    assert.ok(hit.length > 0, 'no reduced-motion rule for ' + selector);
+    return hit.map(function (r) { return r.body; }).join(';');
+  }
+  assert.match(find('.ak-tabbar .ak-tab .ak-tab-icon'), /transition:\s*none/);
+  assert.match(find('.ak-tabbar .ak-tab:active .ak-tab-icon'), /transform:\s*none/);
+  ['.ak-tab.ak-tab-in', '.ak-tab.ak-tab-in .ak-tab-icon', '.ak-page-in'].forEach(function (s) {
+    assert.match(find(s), /animation:\s*none/, s);
+  });
+});
+
+test('css popup: tokens, keyframes with only opacity and transform, and a fade without scale for reduced motion', function () {
+  var tokens = readCss('ak-tokens.css');
+  assert.match(tokens, /--ak-pop-duration:\s*140ms;/);
+  assert.match(tokens, /--ak-pop-ease:\s*cubic-bezier\(0\.2, 0\.9, 0\.3, 1\);/);
+  var css = readCss('ak-components.css');
+  var rules = rulesOf(css);
+  ['ak-pop-in', 'ak-pop-out'].forEach(function (name) {
+    assert.deepEqual(declaredProps(keyframes(css, name)), ['opacity', 'transform'], name);
+    assert.match(keyframes(css, name), /scale\(0\.96\)/, name);
+  });
+  assert.deepEqual(declaredProps(keyframes(css, 'ak-fade-out')), ['opacity']);
+  assert.deepEqual(declaredProps(keyframes(css, 'ak-fade-in')), ['opacity']);
+  assert.match(bodyOf(rules, '.ak-pop'), /animation:\s*ak-pop-in var\(--ak-pop-duration\) var\(--ak-pop-ease\)/);
+  assert.match(bodyOf(rules, '.ak-pop'), /transform-origin:\s*50% 50%/);
+  assert.match(bodyOf(rules, '.ak-pop.ak-pop-out'), /animation:\s*ak-pop-out var\(--ak-pop-duration\) var\(--ak-pop-ease\)/);
+  // Toasts and shown menus pop in by themselves, and take the out class too.
+  assert.match(bodyOf(rules, '.ak-toast'), /ak-pop-in/);
+  assert.match(bodyOf(rules, '.ak-card-menu:not([hidden])'), /ak-pop-in/);
+  assert.match(bodyOf(rules, '.ak-toast.ak-pop-out'), /ak-pop-out/);
+  assert.match(bodyOf(rules, '.ak-card-menu.ak-pop-out'), /ak-pop-out/);
+  var reduced = rules.filter(function (r) {
+    return r.atrules.indexOf('@media (prefers-reduced-motion: reduce)') >= 0 && /\.ak-pop|\.ak-toast|\.ak-card-menu(?!-)/.test(r.prelude);
+  });
+  assert.ok(reduced.length >= 2);
+  reduced.forEach(function (r) {
+    assert.doesNotMatch(r.body, /scale|transform/, r.prelude);
+    assert.match(r.body, /animation-name:\s*ak-fade-(in|out)/, r.prelude);
+  });
 });

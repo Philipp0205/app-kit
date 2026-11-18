@@ -302,6 +302,130 @@ test('snaps: snapTo after close does nothing', function () {
   assert.equal(offset(s), '400px');
 });
 
+// ---------- close continues from the current offset ----------
+
+test('close: from rest it adds ak-closing, stays until the 220ms timer, then goes', function () {
+  var env = sheetEnv();
+  var node = env.makeSheet();
+  env.window.AppKit.sheet.show(node).close();
+  assert.ok(env.document.querySelector('.ak-sheet-layer.ak-closing'));
+  assert.equal(env.timers[0].ms, 220);
+  assert.ok(env.document.querySelector('.ak-sheet'));
+  env.runTimers();
+  assert.equal(env.document.querySelector('.ak-sheet-layer'), null);
+});
+
+test('close: a mid-drag offset is never cleared to the rest position', function () {
+  var env = sheetEnv();
+  var node = env.makeSheet();
+  var handle = env.window.AppKit.sheet.show(node);
+  node.style.transform = 'translateY(40px)';
+  var seen = [];
+  var style = node.style;
+  var value = style.transform;
+  Object.defineProperty(style, 'transform', {
+    get: function () { return value; },
+    set: function (v) { value = v; seen.push(v); },
+    enumerable: true
+  });
+  handle.close();
+  assert.ok(seen.length > 0);
+  seen.forEach(function (v) { assert.notEqual(v, '', 'the offset was cleared'); });
+  assert.equal(seen[0], 'translateY(40px)', 'frozen at the current offset first');
+  assert.equal(node.style.transform, 'translateY(100%)');
+  assert.ok(node.parentNode, 'still in the document until the timer');
+  assert.ok(env.document.querySelector('.ak-sheet-layer.ak-closing'));
+  env.runTimers();
+  assert.equal(env.document.querySelector('.ak-sheet'), null);
+});
+
+test('close: a sheet at rest starts from translateY(0px), not from an empty transform', function () {
+  var env = sheetEnv();
+  var node = env.makeSheet();
+  var handle = env.window.AppKit.sheet.show(node);
+  var seen = [];
+  var style = node.style;
+  var value = style.transform;
+  Object.defineProperty(style, 'transform', {
+    get: function () { return value; },
+    set: function (v) { value = v; seen.push(v); },
+    enumerable: true
+  });
+  handle.close();
+  assert.deepEqual(seen, ['translateY(0px)', 'translateY(100%)']);
+});
+
+test('close: a snap sheet at the half snap starts from the snap offset, not from 0', function () {
+  var s = snapSheet();
+  var seen = [];
+  var style = s.node.style;
+  var value = style.transform;
+  Object.defineProperty(style, 'transform', {
+    get: function () { return value; },
+    set: function (v) { value = v; seen.push(v); },
+    enumerable: true
+  });
+  assert.equal(offset(s), '400px');
+  s.handle.close();
+  assert.equal(seen[0], 'translateY(400px)');
+  seen.forEach(function (v) { assert.notEqual(v, ''); });
+  assert.equal(s.node.style.transform, 'translateY(100%)');
+  assert.ok(s.node.parentNode);
+  s.env.runTimers();
+  assert.equal(s.env.document.querySelector('.ak-sheet'), null);
+});
+
+test('close: a snap sheet dragged below the lowest snap and released closes from the drag offset', function () {
+  var s = snapSheet();
+  var grab = head(s.node);
+  var seen = [];
+  var style = s.node.style;
+  var value = style.transform;
+  Object.defineProperty(style, 'transform', {
+    get: function () { return value; },
+    set: function (v) { value = v; seen.push(v); },
+    enumerable: true
+  });
+  down(grab, 500, 0);
+  move(grab, 600, 3000); // 100px below the lowest snap (400px): past the 72px threshold
+  up(grab, 600, 4000);
+  assert.equal(s.closed(), 1);
+  assert.deepEqual(seen, ['translateY(500px)', 'translateY(500px)', 'translateY(100%)']);
+  assert.ok(s.node.parentNode, 'still in the document until the timer');
+  s.env.runTimers();
+  assert.equal(s.env.document.querySelector('.ak-sheet'), null);
+});
+
+test('close: a drag past 72px on a plain sheet closes from that offset', function () {
+  var env = sheetEnv();
+  var closed = 0;
+  var node = env.makeSheet();
+  env.window.AppKit.sheet.show(node, { onClose: function () { closed += 1; } });
+  var seen = [];
+  var style = node.style;
+  var value = style.transform;
+  Object.defineProperty(style, 'transform', {
+    get: function () { return value; },
+    set: function (v) { value = v; seen.push(v); },
+    enumerable: true
+  });
+  dragTo(head(node), 100, 190, 900);
+  assert.equal(closed, 1);
+  assert.deepEqual(seen, ['translateY(90px)', 'translateY(90px)', 'translateY(100%)']);
+  assert.ok(env.document.querySelector('.ak-sheet-layer.ak-closing'));
+  env.runTimers();
+  assert.equal(env.document.querySelector('.ak-sheet'), null);
+});
+
+test('close: reduced motion still removes at once and does not animate', function () {
+  var env = sheetEnv({ media: REDUCED });
+  var node = env.makeSheet();
+  env.window.AppKit.sheet.show(node).close();
+  assert.equal(env.document.querySelector('.ak-sheet'), null);
+  assert.equal(env.timers.length, 0);
+  assert.equal(node.style.transform, undefined);
+});
+
 // ---------- scaleBackground ----------
 
 test('scaleBackground: adds ak-sheet-behind and html.ak-sheet-scaled, removes them on close', function () {

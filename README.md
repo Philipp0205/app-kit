@@ -20,11 +20,11 @@ Apps pin a released git tag, not a branch tip.
 | `ak-tokens.css` | The `--ak-*` design tokens (colour, type, space, radii, motion). Dark default, light on a light phone, `data-ak-scheme` to force one. Also holds the per-app accent and font override points. |
 | `ak-base.css` | Optional reset. Does nothing until `<html class="ak-base">`. |
 | `ak-components.css` | Class-based components, all prefixed `ak-`, plus the `html.eink` layer. |
-| `ak-dom.js` | `AppKit.h` (build elements, text is never parsed as HTML) and `AppKit.copyText`. |
+| `ak-dom.js` | `AppKit.h` (build elements, text is never parsed as HTML), `AppKit.copyText` and `AppKit.pop` (pop a popup in and out). |
 | `ak-sheet.js` | `AppKit.sheet.show`: a bottom sheet with scrim, swipe down, Escape. |
-| `ak-toast.js` | `AppKit.toast`: short messages in `#ak-toasts`. |
+| `ak-toast.js` | `AppKit.toast`: short messages in `#ak-toasts`. They pop in and out. |
 | `ak-donate.js` | `AppKit.donate`: a voluntary PayPal tip button and sheet. It only links out. |
-| `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges. No routing. |
+| `ak-tabbar.js` | `AppKit.tabbar`: a bottom tab bar with badges, and a short motion when a tab is selected. No routing. |
 | `ak-nav.js` | `AppKit.nav.syncOverlayHistory`: Back closes the top overlay instead of leaving the app. |
 | `ak-whats-new.js` | `AppKit.whatsNew`: pure helpers for a "what's new" list (`validId`, `normalizeEntries`, `latestId`, `unseenEntries`, `formatEntryDate`, `newerSeen`). No DOM. The entry schema is in `docs/whats-new.md`. |
 | `ak-sw.js` | `AppKitSW.setup`: the service worker, loaded with `importScripts` from the app's own `sw.js`. A worker script, not a page script. Adds only `self.AppKitSW`. |
@@ -48,7 +48,7 @@ Load order in the page head:
     <link rel="stylesheet" href="/app-kit/ak-components.css">
     <link rel="stylesheet" href="/app-kit/app-kit.css">
 
-**Tokens.** `ak-tokens.css` defines `--ak-bg`, `--ak-text`, `--ak-muted`, `--ak-surface` (and `-2`, `-3`), `--ak-hairline`, `--ak-danger`, type (`--ak-fs-*`), space (`--ak-s1` to `--ak-s5`), radii (`--ak-radius-*`), chrome (`--ak-tab`, `--ak-phone`) and motion. Dark is the default. On a light phone only the colours change. To force a scheme, set `<html data-ak-scheme="dark">` or `"light"`. That wins over the phone setting. It also defines `--ak-safe-*`, so it works without `app-kit.css`.
+**Tokens.** `ak-tokens.css` defines `--ak-bg`, `--ak-text`, `--ak-muted`, `--ak-surface` (and `-2`, `-3`), `--ak-hairline`, `--ak-danger`, type (`--ak-fs-*`), space (`--ak-s1` to `--ak-s5`), radii (`--ak-radius-*`), chrome (`--ak-tab`, `--ak-tab-icon-size`, `--ak-phone`) and motion (`--ak-duration*`, `--ak-ease-spring`, `--ak-pop-duration`, `--ak-pop-ease`). Dark is the default. On a light phone only the colours change. To force a scheme, set `<html data-ak-scheme="dark">` or `"light"`. That wins over the phone setting. It also defines `--ak-safe-*`, so it works without `app-kit.css`.
 
 **Stacking.** The chrome z-order is a token set: `--ak-z-tabbar` (20) < `--ak-z-sheet-layer` (40) < `--ak-z-toast` (60). Inside the sheet layer the scrim (`--ak-z-scrim`, 30) sits under the sheet (`--ak-z-sheet`, 31). The layer has its own z-index, so an open sheet covers the tab bar. Apps no longer need their own `.ak-sheet-layer { z-index }` rule. Keep any app fixed bars below `--ak-z-sheet-layer`.
 
@@ -78,11 +78,11 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
     <script src="/app-kit/ak-tabbar.js"></script>
     <script src="/app-kit/ak-nav.js"></script>
 
-- `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false.
-- `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open. Optional: `snaps`, `snap`, `scaleBackground`, and `snapTo(index)` on the result (see "Native feel").
+- `AppKit.h(tag, attrs, ...children)`: text is always a text node. `AppKit.copyText(text)` returns a Promise of true or false. `AppKit.pop.in(el)` and `AppKit.pop.out(el)` pop a popup in and out (`.ak-pop`, `--ak-pop-duration`, `--ak-pop-ease`). `out` returns a Promise, then hides a menu or removes any other element. Reduced motion: fade only.
+- `AppKit.sheet.show(node, { head, onClose, focus })` returns `{ close }`, or `null` if a sheet is already open. Optional: `snaps`, `snap`, `scaleBackground`, and `snapTo(index)` on the result (see "Native feel"). Closing slides down from where the sheet is, with no jump back first.
 - `AppKit.donate.button({ url, label })` and `AppKit.donate.show({ url, appName, text, amounts })`: `url` must be https on `paypal.me`, `www.paypal.me` or `www.paypal.com`, else it throws. `show` opens a sheet with a note, optional amount chips (`{url}/{amount}EUR`) and a "Donate with PayPal" link. It only links out; there are no payments in the kit. Needs `ak-dom.js` and `ak-sheet.js` first.
-- `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`.
-- `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is. Optional: `onReselect`, `scrollTopOnReselect`, `scroller`, `rememberScroll` (see "Native feel").
+- `AppKit.toast(message, { kind, ms })`. Kind `'error'` uses `role="alert"`. The toast pops in, stays `ms`, then pops out (140 ms) and is removed. It uses `AppKit.pop.out` when `ak-dom.js` is loaded, and works alone without it.
+- `AppKit.tabbar({ tabs, active, onSelect, badge, badgeLabel, label })` returns `{ el, update }`. The kit does no routing. The badge has `role="img"` and an aria-label. A count is named `"{text} {badgeLabel}"`, for example `"3 new"` or `"99+ new"`, and `badgeLabel` defaults to `'new'`. Custom text such as `"new"` is used as the label as it is. Optional: `onReselect`, `scrollTopOnReselect`, `scroller`, `rememberScroll` (see "Native feel"). Every icon gets the class `ak-tab-icon` (size `--ak-tab-icon-size`, 26px), and a string icon is wrapped in a span. A real switch through `update({ active })` adds `ak-tab-in` to the new tab for the length of its animation. `AppKit.tabbar.animateIn(el)` and `AppKit.tabbar.animatePage(el)` (`ak-tab-in` / `ak-page-in`) do the same for an app with its own tab bar and for its pages.
 - `AppKit.nav.syncOverlayHistory({ depth, onPop })`: `depth` is a number or a function that returns how many overlays are open. Call it after every render.
 
 **Server pages (Extrablatt Kindle, legal, billing).** Include `ak-tokens.css` and `ak-components.css` only. No JS is needed. Add `class="eink"` to `<html>` for e-ink.
@@ -109,7 +109,7 @@ Server notes: serve `sw.js` from the scope root with `Content-Type: text/javascr
 
 ## Native feel
 
-Opt-in pieces that make an installed app behave more like a phone app: page transitions and an edge swipe back, sheets with snaps and a scaled background, touch feel, glass bars with a large title, scroll memory, pull to refresh, and `AppKit.swr` with skeletons for instant screens. An app that syncs this and changes nothing looks and behaves as before. Link `ak-native.css` and add `class="ak-native"` to `<html>` to turn on the CSS. Guide, options and iOS limits: [docs/native-feel.md](docs/native-feel.md).
+Opt-in pieces that make an installed app behave more like a phone app: page transitions and an edge swipe back, sheets with snaps and a scaled background, touch feel, glass bars with a large title, scroll memory, pull to refresh, and `AppKit.swr` with skeletons for instant screens. An app that syncs this and changes nothing looks and behaves as before. Link `ak-native.css` and add `class="ak-native"` to `<html>` to turn on the CSS. Guide, options and iOS limits: [docs/native-feel.md](docs/native-feel.md). Under `html.ak-native` tab bar items dip the icon on press instead of dimming, and popups, toasts and card menus pop in and out (see the guide, "Tab bar motion" and "Popups").
 
     <link rel="stylesheet" href="/app-kit/ak-native.css">
     <script src="/app-kit/ak-native.js"></script>
