@@ -76,7 +76,7 @@ Everything below is under `html.ak-native`.
 
 These rules are in `ak-components.css`, so they work without `html.ak-native` too.
 
-- `.ak-tab-icon`: the icon, sized `--ak-tab-icon-size` (26px) in width and height. `AppKit.tabbar` puts the class on every icon: a DOM node keeps its other classes and gets `ak-tab-icon` added, a string is wrapped in `<span class="ak-tab-icon">`, no icon means nothing is added.
+- `.ak-tab-icon`: the icon, sized `--ak-tab-icon-size` (26px) in width and height. `AppKit.tabbar` puts the class on every icon: a DOM node keeps its other classes and gets `ak-tab-icon` added, a string is wrapped in `<span class="ak-tab-icon">`, no icon means nothing is added. A string is set as text, so an inline SVG markup string shows up as text, not as an icon. Pass inline SVG icons as DOM nodes (a real SVG element, or one built with `AppKit.h`).
 - Press: `.ak-tabbar .ak-tab:active .ak-tab-icon` scales to 0.9 (`--ak-duration-press`, ease-out). It springs back with `--ak-duration` and `--ak-ease-spring`.
 - Landing: when `update({ active })` switches to a different tab, the new `.ak-tab` gets `ak-tab-in` until its animation ends. The label colour goes from `--ak-muted` to `--ak-text` (180 ms) and the icon scales 0.86 to 1 (`ak-tab-icon-in`, 220 ms, `--ak-ease-spring`). It is not added on the first render, on an `update` with the same `active` (badge-only or re-render), when the active tab is tapped again, or with reduced motion. There is no option for it.
 - `.ak-page-in`: opacity 0 to 1 over 160 ms and nothing else, so scroll and map measurements do not move. The kit never sets it by itself. Put it on the page that was just shown.
@@ -130,8 +130,9 @@ These rules are in `ak-components.css`, so they work without `html.ak-native` to
 | `onRefresh` | required | Returns a Promise or a value. A rejection is not reported: handle errors inside it. |
 | `el` | the page | The scroller. |
 | `threshold` | `64` | px the finger must pull down. |
+| `minMs` | `700` | Least ms the spinner stays once a refresh starts. `0` hides as soon as `onRefresh` settles. Omitted or not a number `>= 0` means `700`. |
 
-A pull starts only when the scroller is at `scrollTop` 0 and the finger moves down more than sideways. The `.ak-ptr` indicator follows with resistance. On release past the threshold it stays, with `ak-ptr-loading`, until `onRefresh` settles. A second refresh cannot start meanwhile. While bound, the scroller has `overscroll-behavior-y: contain`, so the browser's own refresh does not also fire. `destroy()` restores it and removes the indicator.
+A pull starts only when the scroller is at `scrollTop` 0 and the finger moves down more than sideways. The `.ak-ptr` indicator follows with resistance. On release past the threshold it stays, with `ak-ptr-loading`, until `onRefresh` has settled and `minMs` has elapsed, so a fast refresh is not just a flash. The hold also applies when the refresh rejects, throws, or returns a plain value. A second refresh cannot start meanwhile, the hold included. Under reduced motion the hold is kept (a still spinner is not motion), but the hide does not slide or fade. `--ak-ptr-progress` and `--ak-ptr-y` are registered `@property`s in `ak-native.css`, so the hide eases out over 320 ms instead of snapping. While bound, the scroller has `overscroll-behavior-y: contain`, so the browser's own refresh does not also fire. `destroy()` restores it, clears a pending hold and removes the indicator.
 
 ## Instant screens
 

@@ -9,7 +9,7 @@
  *   AppKit.largeTitle(titleEl, { navbar, scroller }) -> { destroy }
  *   AppKit.scroll.memory({ el }) -> { save(key), restore(key), forget(key) }
  *   AppKit.scroll.toTop(el, { smooth })
- *   AppKit.pullToRefresh({ el, onRefresh, threshold }) -> { destroy }
+ *   AppKit.pullToRefresh({ el, onRefresh, threshold, minMs }) -> { destroy }
  *
  * largeTitle(titleEl, opts)
  *   Toggles the class "ak-collapsed" on the navbar while the large title has
@@ -40,14 +40,20 @@
  *   opts.el          the scroller. Default: the page.
  *   opts.onRefresh   required. Returns a Promise or a value.
  *   opts.threshold   px the finger must pull down. Default 64.
+ *   opts.minMs       least ms the spinner stays once a refresh starts. Default
+ *                    700 (when omitted or not a number >= 0). 0 hides as soon
+ *                    as onRefresh settles.
  *   A pull starts only when the scroller is at scrollTop 0 and the finger
  *   moves down more than sideways. The indicator (.ak-ptr, added to <body>)
  *   follows with resistance. On release past the threshold it stays, with the
- *   class "ak-ptr-loading", until the onRefresh Promise settles (resolved or
- *   rejected), then hides. A second refresh cannot start while one runs. A
+ *   class "ak-ptr-loading", until onRefresh has settled (resolved, rejected,
+ *   threw, or returned a plain value) and minMs has elapsed, then hides. The
+ *   hold is kept under prefers-reduced-motion (only the slide and fade go). A
+ *   second refresh cannot start while one runs, nor during the hold. A
  *   rejection is not reported: handle errors inside onRefresh. While bound, the
  *   scroller has overscroll-behavior-y: contain (the browser's own refresh does
- *   not fire too). destroy() restores it and removes the indicator.
+ *   not fire too). destroy() restores it, clears the hold timer and removes
+ *   the indicator.
  *   touchstart and touchend are passive, touchmove is not (it stops the
  *   page from scrolling while the indicator is pulled).
  *
@@ -257,6 +263,7 @@
       throw new TypeError('AppKit.pullToRefresh: opts.onRefresh must be a function');
     }
     var threshold = typeof o.threshold === 'number' && o.threshold > 0 ? o.threshold : 64;
+    var minMs = typeof o.minMs === 'number' && o.minMs >= 0 ? o.minMs : 700;
     var surface = isWindow(o.el) ? document : o.el;
     var styled = isWindow(o.el) ? document.documentElement : o.el;
     var previous = styled.style.overscrollBehaviorY;
@@ -264,6 +271,7 @@
     var track = null;
     var loading = false;
     var destroyed = false;
+    var holdTimer = null;
 
     function top() {
       return scroller(o.el).scrollTop || 0;
@@ -302,11 +310,26 @@
         addClass(indicator, 'ak-ptr-loading');
       }
       show(PULL_REST_PX, 1);
-      function done() {
-        loading = false;
-        if (!destroyed) {
-          hide();
+      var settled = false;
+      var held = minMs === 0;
+      function finish() {
+        if (settled && held) {
+          holdTimer = null;
+          loading = false;
+          if (!destroyed) {
+            hide();
+          }
         }
+      }
+      function done() {
+        settled = true;
+        finish();
+      }
+      if (!held) {
+        holdTimer = setTimeout(function () {
+          held = true;
+          finish();
+        }, minMs);
       }
       var result;
       try {
@@ -398,6 +421,10 @@
           return;
         }
         destroyed = true;
+        if (holdTimer !== null) {
+          clearTimeout(holdTimer);
+          holdTimer = null;
+        }
         surface.removeEventListener('touchstart', onStart);
         surface.removeEventListener('touchmove', onMove);
         surface.removeEventListener('touchend', onEnd);

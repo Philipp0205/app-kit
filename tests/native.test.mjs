@@ -431,13 +431,13 @@ function release(env) {
   env.fireDocument('touchend', { touches: [] });
 }
 
-function ptrEnv(refresh, options) {
+function ptrEnv(refresh, options, ptrOptions) {
   var env = native(options);
   var calls = 0;
-  var handle = env.window.AppKit.pullToRefresh({
-    threshold: 64,
-    onRefresh: function () { calls += 1; return refresh ? refresh() : undefined; }
-  });
+  var opts = { threshold: 64 };
+  Object.keys(ptrOptions || {}).forEach(function (k) { opts[k] = ptrOptions[k]; });
+  opts.onRefresh = function () { calls += 1; return refresh ? refresh() : undefined; };
+  var handle = env.window.AppKit.pullToRefresh(opts);
   return { env: env, handle: handle, calls: function () { return calls; }, ptr: function () { return env.document.querySelector('.ak-ptr'); } };
 }
 
@@ -522,36 +522,132 @@ test('pullToRefresh: past the threshold, onRefresh runs once and ak-ptr-loading 
   assert.match(p.ptr().className, /\bak-ptr-loading\b/, 'still loading');
   d.resolve();
   await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/, 'held after it settled');
+  p.env.runTimers();
   assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
   assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
 });
 
-test('pullToRefresh: a rejected refresh hides the indicator too', async function () {
+test('pullToRefresh: a rejected refresh hides the indicator too, after the hold', async function () {
   var d = deferred();
   var p = ptrEnv(function () { return d.promise; });
   pull(p.env, 100, 200);
   release(p.env);
   d.reject(new Error('offline'));
   await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/, 'held after the rejection');
+  p.env.runTimers();
   assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
 });
 
 test('pullToRefresh: a throwing onRefresh does not leave it loading', function () {
   var p = ptrEnv(function () { throw new Error('sync'); });
   pull(p.env, 100, 200);
   assert.doesNotThrow(function () { release(p.env); });
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/, 'held after the throw');
+  p.env.runTimers();
   assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
 });
 
-test('pullToRefresh: a plain return value (no Promise) ends the loading state at once', function () {
+test('pullToRefresh: a plain return value (no Promise) is held, then ends the loading state', function () {
   var p = ptrEnv();
   pull(p.env, 100, 200);
   release(p.env);
   assert.equal(p.calls(), 1);
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/);
+  p.env.runTimers();
   assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
 });
 
-test('pullToRefresh: a second refresh cannot start while one runs, and can after', async function () {
+test('pullToRefresh: minMs 0 ends the loading state at once and queues no hold timer', function () {
+  var p = ptrEnv(null, undefined, { minMs: 0 });
+  pull(p.env, 100, 200);
+  release(p.env);
+  assert.equal(p.calls(), 1);
+  assert.equal(p.env.timers.length, 0);
+  assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
+});
+
+test('pullToRefresh: minMs 0 hides when a Promise settles, with no timer', async function () {
+  var d = deferred();
+  var p = ptrEnv(function () { return d.promise; }, undefined, { minMs: 0 });
+  pull(p.env, 100, 200);
+  release(p.env);
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/);
+  d.resolve();
+  await tick();
+  assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.env.timers.length, 0);
+});
+
+test('pullToRefresh: the hold is 700 ms by default and minMs sets it', function () {
+  var p = ptrEnv();
+  pull(p.env, 100, 200);
+  release(p.env);
+  assert.deepEqual(p.env.timers.map(function (t) { return t.ms; }), [700]);
+
+  var q = ptrEnv(null, undefined, { minMs: 400 });
+  pull(q.env, 100, 200);
+  release(q.env);
+  assert.deepEqual(q.env.timers.map(function (t) { return t.ms; }), [400]);
+});
+
+test('pullToRefresh: a minMs that is not a number >= 0 means 700', function () {
+  [-1, '300', NaN, null, undefined].forEach(function (bad) {
+    var p = ptrEnv(null, undefined, { minMs: bad });
+    pull(p.env, 100, 200);
+    release(p.env);
+    assert.deepEqual(p.env.timers.map(function (t) { return t.ms; }), [700], String(bad));
+  });
+});
+
+test('pullToRefresh: a fast resolve keeps the spinner at rest until the hold ends', async function () {
+  var d = deferred();
+  var p = ptrEnv(function () { return d.promise; });
+  pull(p.env, 100, 200);
+  release(p.env);
+  d.resolve();
+  await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '52px');
+  assert.equal(p.ptr().style['--ak-ptr-progress'], '1');
+  p.env.runTimers();
+  assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
+});
+
+test('pullToRefresh: a fast reject keeps the spinner at rest until the hold ends', async function () {
+  var d = deferred();
+  var p = ptrEnv(function () { return d.promise; });
+  pull(p.env, 100, 200);
+  release(p.env);
+  d.reject(new Error('offline'));
+  await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '52px');
+  p.env.runTimers();
+  assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
+});
+
+test('pullToRefresh: a refresh slower than minMs hides when it settles, with no further timer', async function () {
+  var d = deferred();
+  var p = ptrEnv(function () { return d.promise; });
+  pull(p.env, 100, 200);
+  release(p.env);
+  p.env.runTimers();
+  await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/, 'the hold is over but onRefresh is pending');
+  d.resolve();
+  await tick();
+  assert.doesNotMatch(p.ptr().className, /ak-ptr-loading/);
+  assert.equal(p.ptr().style['--ak-ptr-y'], '0px');
+  assert.equal(p.env.timers.length, 0);
+});
+
+test('pullToRefresh: a second refresh cannot start while one runs or during the hold, and can after', async function () {
   var d = deferred();
   var p = ptrEnv(function () { return d.promise; });
   pull(p.env, 100, 200);
@@ -561,12 +657,13 @@ test('pullToRefresh: a second refresh cannot start while one runs, and can after
   assert.equal(p.calls(), 1);
   d.resolve();
   await tick();
-  var d2 = deferred();
-  p.calls();
+  pull(p.env, 100, 200);
+  release(p.env);
+  assert.equal(p.calls(), 1, 'still in the hold');
+  p.env.runTimers();
   pull(p.env, 100, 200);
   release(p.env);
   assert.equal(p.calls(), 2);
-  d2.resolve();
 });
 
 test('pullToRefresh: touchcancel hides the indicator without refreshing', function () {
@@ -620,7 +717,23 @@ test('pullToRefresh: destroy during a refresh does not bring the indicator back'
   p.handle.destroy();
   d.resolve();
   await tick();
+  p.env.runTimers();
   assert.equal(p.ptr(), null);
+});
+
+test('pullToRefresh: destroy during the hold does not bring the indicator back', async function () {
+  var d = deferred();
+  var p = ptrEnv(function () { return d.promise; });
+  pull(p.env, 100, 200);
+  release(p.env);
+  d.resolve();
+  await tick();
+  assert.match(p.ptr().className, /\bak-ptr-loading\b/);
+  p.handle.destroy();
+  assert.equal(p.ptr(), null);
+  p.env.runTimers();
+  assert.equal(p.ptr(), null);
+  assert.equal(p.env.document.querySelector('.ak-ptr'), null);
 });
 
 // ---------- CSS ----------
@@ -848,6 +961,28 @@ test('css native: pull to refresh and skeleton classes exist, and motion is turn
   shimmerOff.forEach(function (r) { assert.match(r.body, /animation:\s*none/); });
   var spinnerOff = reducedRules.filter(function (r) { return /ak-ptr-loading::after/.test(r.prelude); });
   assert.ok(spinnerOff.length > 0);
+});
+
+test('css native: the ptr variables are registered and the hide eases out only without reduced motion', function () {
+  var raw = fs.readFileSync(path.join(ROOT, 'frontend', 'ak-native.css'), 'utf8');
+  assert.ok(raw.indexOf('@property --ak-ptr-progress { syntax: "<number>"; inherits: true; initial-value: 0; }') >= 0);
+  assert.ok(raw.indexOf('@property --ak-ptr-y { syntax: "<length>"; inherits: true; initial-value: 0px; }') >= 0);
+  var rules = rulesOf(readCss('ak-native.css'));
+  var NO_PREF = '@media (prefers-reduced-motion: no-preference)';
+  var guarded = rules.filter(function (r) { return r.atrules.indexOf(NO_PREF) >= 0; });
+  var ease = guarded.filter(function (r) { return r.prelude === '.ak-ptr'; });
+  assert.equal(ease.length, 1);
+  assert.match(ease[0].body, /transition:\s*transform 320ms ease-out,\s*opacity 320ms ease-out/);
+  var pulling = guarded.filter(function (r) { return r.prelude === '.ak-ptr.ak-ptr-pulling'; });
+  assert.equal(pulling.length, 1);
+  assert.match(pulling[0].body, /transition:\s*none/);
+  var plain = rules.filter(function (r) { return r.prelude === '.ak-ptr' && r.atrules.length === 0; });
+  assert.equal(plain.length, 1);
+  assert.doesNotMatch(plain[0].body, /transition/);
+  assert.doesNotMatch(readCss('ak-native.css'), /220ms/);
+  var off = rules.filter(function (r) { return r.prelude === '.ak-ptr' && r.atrules.indexOf('@media (prefers-reduced-motion: reduce)') >= 0; });
+  assert.equal(off.length, 1);
+  assert.match(off[0].body, /transition:\s*none/);
 });
 
 test('css native: ak-native.css never sets a background on html or body', function () {
