@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 (unreleased)
+
+Patch: pull-to-refresh hold and hide easing, plus a tab bar doc note. Nothing is breaking. Guide: `docs/native-feel.md`.
+
+- `frontend/ak-native.js`: `AppKit.pullToRefresh` keeps the spinner for at least `minMs` (default 700 ms). It hides when `onRefresh` has settled and the time has passed, on resolve and on reject, and when `onRefresh` throws or returns a plain value. `minMs: 0` hides as soon as it settles, as before. A second refresh cannot start during the hold. `destroy()` clears the pending hold. Reduced motion keeps the hold.
+- `frontend/ak-native.css`: `--ak-ptr-progress` and `--ak-ptr-y` are registered with `@property`, so the hide eases out. `.ak-ptr` has a 320 ms ease-out transform and opacity transition (was 220 ms, which never ran because the variables did not interpolate), only under `prefers-reduced-motion: no-preference`. Under reduced motion there is no slide or fade, but the hold stays.
+- Docs: `docs/native-feel.md` and `README.md` (`minMs`). A string tab icon is set as text, so an inline SVG markup string shows as text. Pass inline SVG icons as DOM nodes. `AppKit.tabbar` is unchanged.
+- Tests: hold, `minMs` and CSS tests in `tests/native.test.mjs`. The pull-to-refresh tests that expected an instant hide now run the hold timer first.
+
 ## 0.7.0 (2026-11-18)
 
 Minor and additive: tab bar motion, sheet close-from-drag, and popup pop. Nothing is breaking. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. No new frontend file. Guide: `docs/native-feel.md`.
