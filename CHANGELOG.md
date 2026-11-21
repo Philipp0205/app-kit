@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.0 (unreleased)
+## 0.8.0 (2026-11-21)
 
 Minor and additive: a generic chat module, server and frontend. Nothing is breaking. No existing name, API or token value changes. The kit owns no schema and no routes: the app implements `ChatStore` over its own tables and wires its own routes and membership checks. Guide: `docs/chat.md`.
 
