@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 (unreleased)
+
+Minor and additive: a generic chat module, server and frontend. Nothing is breaking. No existing name, API or token value changes. The kit owns no schema and no routes: the app implements `ChatStore` over its own tables and wires its own routes and membership checks. Guide: `docs/chat.md`.
+
+- `server/chat.ts` (new): `createChat({ store, now?, newId?, maxLength?, threadLimit? })` with `post`, `thread`, `markRead`, `unreadCounts` and `setMuted`. `cleanChatText` (trim, CRLF to LF, control characters removed, length by code points), `CHAT_TEXT_MAX` (1000), `CHAT_THREAD_LIMIT` (200), the `ChatStore`, `ChatMessage`, `ChatPush` and related types, and `CHAT_SQLITE_SCHEMA` (the suggested SQLite layout, `CREATE TABLE IF NOT EXISTS`).
+- `server/chat.ts`: the push batcher. `createChatPushBatcher({ send, stillEligible?, format?, ... })` with `schedule`, `flush`, `pending` and `dispose`, `nextChatPushDelay`, `CHAT_PUSH_WINDOW_MS` (15 s) and `CHAT_PUSH_GAP_MS` (60 s). Messages for one recipient in one chat within the window become one push, and pushes for that pair are at least 60 s apart. A failing `send` is logged by error name only.
+- `server/index.ts`: re-exports `chat.ts`.
+- `frontend/ak-chat.js` and `frontend/ak-chat.css` (new): `AppKit.chat.mount(el, { meId, load, send, markRead?, poll?, pollMs?, ... })` returns `{ send, refresh, setMessages, destroy }`, and `AppKit.chat.poll(fn, { ms })` is a visibility-aware poller that never overlaps. Pending and failed bubbles with tap-to-retry, sends in order, stick to the bottom only when near it, `markRead` only while the page is visible. Text is always set with `textContent`.
+- `demo/chat/index.html` (new), linked from `demo/index.html`.
+- Docs: `docs/chat.md` (with the SQL for each `ChatStore` method), `README.md` and `server/README.md`. `scripts/sync.sh` header comment: the repo is public (comment only, no behaviour change).
+- Tests: `tests/server/chat.test.ts` with `tests/server/chat-memory-store.ts`, `tests/chat.test.mjs`, and the new exports in `tests/server/index.test.ts`.
+
 ## 0.7.0 (2026-11-18)
 
 Minor and additive: tab bar motion, sheet close-from-drag, and popup pop. Nothing is breaking. No existing name, API or token value changes, and `scripts/sync.sh`, `ak-sw.js` and `ak-sw-register.js` are untouched. No new frontend file. Guide: `docs/native-feel.md`.
