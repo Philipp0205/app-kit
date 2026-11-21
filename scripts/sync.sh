@@ -7,9 +7,9 @@
 #   scripts/sync.sh v0.1.0 public/app-kit
 #   scripts/sync.sh --server v0.3.0 src/app-kit
 #
-# The repo is private. The tag is fetched with the local gh login
-# (gh api repos/.../tarball/<tag>). If gh is missing or not logged in, it
-# falls back to git clone --depth 1 --branch <tag>, which needs git access of its own.
+# The repo is public. The tag is fetched with the local gh login when there is
+# one (gh api repos/.../tarball/<tag>). If gh is missing or not logged in, it
+# falls back to git clone --depth 1 --branch <tag>.
 #
 # dest gets a copy of frontend/ (server/ with --server) and a VERSION file with
 # the tag. Files in dest that are no longer in that directory are removed.
@@ -103,7 +103,7 @@ if ! fetch_with_gh; then
   echo "sync.sh: trying git clone instead." >&2
   rm -rf "$tree"
   mkdir -p "$tree"
-  fetch_with_git || fail "could not fetch '$tag'. Log in with 'gh auth login' (the repo is private) and try again."
+  fetch_with_git || fail "could not fetch '$tag'. Check the tag and your network, or log in with 'gh auth login', and try again."
 fi
 
 src="$tree/$part"

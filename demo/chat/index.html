@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>app-kit chat demo</title>
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="../../frontend/ak-tokens.css">
+<link rel="stylesheet" href="../../frontend/ak-components.css">
+<link rel="stylesheet" href="../../frontend/app-kit.css">
+<link rel="stylesheet" href="../../frontend/ak-chat.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: var(--ak-phone);
+    margin: 0 auto;
+    background: var(--ak-bg);
+    color: var(--ak-text);
+    font-family: var(--ak-font);
+  }
+  .demo-bar {
+    flex: none;
+    padding: calc(var(--ak-s3) + var(--ak-safe-top)) var(--ak-s4) var(--ak-s3);
+    border-bottom: 1px solid var(--ak-hairline);
+    background: var(--ak-surface);
+    font-size: var(--ak-fs-xl);
+    font-weight: var(--ak-fw-bold);
+    text-align: center;
+  }
+  #chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+</style>
+<script>
+  // ?scheme=dark or ?scheme=light forces a scheme (see the top of ak-tokens.css). Without it the phone decides.
+  (function () {
+    var m = /[?&]scheme=(dark|light)\b/.exec(location.search);
+    if (m) { document.documentElement.setAttribute('data-ak-scheme', m[1]); }
+  })();
+</script>
+</head>
+<body>
+<div class="demo-bar">Trip crew</div>
+<div id="chat"></div>
+
+<script src="../../frontend/ak-chat.js"></script>
+<script>
+  var ME = 'u-me';
+  var NOW = Date.now();
+  var MIN = 60000;
+  function msg(id, userId, userName, body, minutesAgo) {
+    return { id: id, userId: userId, userName: userName, body: body, createdAt: NOW - minutesAgo * MIN };
+  }
+  var messages = [
+    msg('m1', 'u-ana', 'Ana', 'Anyone up for the lake on Saturday?', 42),
+    msg('m2', 'u-ana', 'Ana', 'I can drive.', 41),
+    msg('m3', ME, 'Me', 'Yes! What time?', 38),
+    msg('m4', 'u-ben', 'Ben', 'Count me in.\nI will bring the speaker and the snacks.', 30),
+    msg('m5', 'u-ana', 'Ana', 'Leaving at 9, back by dinner.', 24),
+    msg('m6', ME, 'Me', 'Perfect', 20),
+    msg('m7', ME, 'Me', 'See you at the corner of Mill St.', 19),
+    msg('m8', 'u-ben', 'Ben', 'Great. <b>Not bold</b>, just text.', 6)
+  ];
+
+  var FAIL = 'This one did not go through.';
+  var HANG = 'Still sending this one\u2026';
+  var counter = 0;
+  var chat = AppKit.chat.mount(document.getElementById('chat'), {
+    meId: ME,
+    poll: false,
+    load: function () { return Promise.resolve({ messages: messages.slice() }); },
+    send: function (text) {
+      // The two seeded messages below show the failed and the pending state.
+      if (text === HANG) { return new Promise(function () {}); }
+      if (text === FAIL) { return Promise.reject(new Error('offline')); }
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          counter += 1;
+          var saved = { id: 'srv-' + counter, userId: ME, userName: 'Me', body: text, createdAt: Date.now() };
+          messages.push(saved);
+          resolve(saved);
+        }, 500);
+      });
+    }
+  });
+
+  // Sends go out one at a time: the first fails, the second never finishes. Both states stay on screen.
+  chat.refresh().then(function () {
+    chat.send(FAIL);
+    chat.send(HANG);
+  });
+</script>
+</body>
+</html>

@@ -30,6 +30,9 @@ test("index.ts re-exports every module's public API", () => {
     // auth-code, mailer, auth
     "generateRecoveryCode", "normalizeRecoveryCode", "hashSecret", "normalizeEmail", "needsEmail",
     "resendMailer", "stubMailer", "MailerError", "createAuth",
+    // chat
+    "createChat", "cleanChatText", "CHAT_TEXT_MAX", "CHAT_THREAD_LIMIT", "CHAT_SQLITE_SCHEMA",
+    "createChatPushBatcher", "nextChatPushDelay", "CHAT_PUSH_WINDOW_MS", "CHAT_PUSH_GAP_MS",
   ];
   for (const name of expected) assert.ok(name in kit, `${name} is exported from index.ts`);
 });

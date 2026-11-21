@@ -5,6 +5,7 @@ Shared frontend helpers for Hangry (free-now), Loan some (loaner), and Extrablat
 - Plain JS and CSS for PWA install prompts and theme-color, plus a service worker script, its page-side register helper, and a manifest script. No push yet. No build step, no runtime dependencies.
 - TypeScript server modules for the two TypeScript apps (`server/`): rate limiter, client key, time, HTTP, CSP, static files, health, graceful shutdown. `node:` built-ins only.
 - A TypeScript auth module for the two TypeScript apps (`server/auth.ts`, see "Auth module" below).
+- A chat module: `server/chat.ts` for the two TypeScript apps and `frontend/ak-chat.js` for the pane (see "Chat module" below).
 - Shared Playwright behaviour tests (planned).
 
 Apps pin a released git tag, not a branch tip.
@@ -34,6 +35,7 @@ Apps pin a released git tag, not a branch tip.
 | `ak-transition.js` | `AppKit.transition.go` (View Transitions with an instant fallback) and `.swipeBack` (edge swipe, installed apps only). |
 | `ak-view-transitions.css` | `@view-transition { navigation: auto; }` for multi-page apps. Link it on every page. |
 | `ak-swr.js` | `AppKit.swr` and `AppKit.swr.clear`: render the cached value at once, then the fresh one. |
+| `ak-chat.js`, `ak-chat.css` | `AppKit.chat.mount` (a chat pane with a send queue and retry) and `AppKit.chat.poll` (a visibility-aware poller). Guide: `docs/chat.md`. |
 
 Each script is a plain IIFE and adds only `window.AppKit` (`ak-sw.js` runs in a worker and adds only `self.AppKitSW`). See `docs/pwa-bars.md` for how the bars work and what the kit cannot fix. Open `demo/index.html` for a demo page, and `demo/design.html` for the design system. `demo/sw/` is a small runnable service worker demo (`node demo/sw/serve.mjs`). `demo/native/` shows the native feel pieces (serve the repo root and open `/demo/native/`).
 
@@ -91,7 +93,7 @@ The defaults are Hangry pink. Light and dark each have their own accent, so an a
 
 ## Getting the files into an app
 
-This repo is private. Apps copy the files with the sync script instead of installing from a git tag in CI. That keeps a GitHub token out of Railway builds. Run it on your own machine, where `gh` is logged in, and commit the result:
+This repo is public. Apps copy the files with the sync script instead of installing from a git tag in CI, so builds never fetch the kit. Run it on your own machine and commit the result:
 
     scripts/sync.sh <tag> <dest-dir>
 
@@ -130,6 +132,7 @@ Opt-in pieces that make an installed app behave more like a phone app: page tran
 | `static.ts` | `serveStatic(root, options)`: GET and HEAD, no path escape (`..`, NUL, symlinks), SPA fallback, configurable caching. |
 | `health.ts` | `healthHandler`: `GET /api/health` is `{"ok":true}`, other methods 405, other paths untouched. |
 | `shutdown.ts` | `installGracefulShutdown`: closes the server on SIGTERM and SIGINT, force-exits after 8 s, runs your `onClose` once. |
+| `chat.ts` | `createChat` (post, thread, mark read, unread counts, mute over your `ChatStore`), `cleanChatText`, `createChatPushBatcher` and `CHAT_SQLITE_SCHEMA`. Guide: `docs/chat.md`. |
 
 Full export list: `server/README.md`. The Java side of the same rules (limiter, client key, health, error JSON, security headers) is in `docs/java-conventions.md`.
 
@@ -209,9 +212,26 @@ An app whose `tsconfig.json` type-checks these files needs `"allowImportingTsExt
     if (!user) throw new HttpError(401, "sign in");
     if (needsEmail(user) && !isAddEmailRoute) throw new HttpError(403, "add an email first");
 
+### Chat module
+
+`server/chat.ts` and `frontend/ak-chat.js` with `ak-chat.css`: one chat per id, a thread, unread counts, mute, a push batcher (many messages become one notice per recipient and chat), and a browser pane with a send queue, retry and a visibility-aware poller. The kit owns no schema and no routes, and it does not check membership: the app implements the six-method `ChatStore` and calls the kit after its own access check. Store contract with SQL for the suggested schema, the batcher rules and the frontend options: [docs/chat.md](docs/chat.md).
+
+    import { createChat, createChatPushBatcher } from "./app-kit/index.ts";
+
+    const chat = createChat({ store: sqliteChatStore(db) });          // the app's small queries
+    const batcher = createChatPushBatcher({ send: (push) => sendWebPush(push.userId, push.body) });
+
+    // POST /api/groups/:id/chat, after the membership check
+    const r = await chat.post(chatId, { id: user.id, name: user.name }, body.text);
+    if (!r.ok) throw new HttpError(400, "message not accepted", r.reason);
+    batcher.schedule({ chatId, recipients: otherMembers, body: `${user.name}: ${r.message.body}` });
+
+    // in the page
+    AppKit.chat.mount(el, { meId: me.id, load: loadThread, send: postMessage, markRead: markThreadRead });
+
 ### Syncing the TS apps
 
-The repo is private, and the apps copy-sync it. There are no git-tag installs and no GitHub token in CI. Run both commands on your own machine, where `gh` is logged in, and commit the result:
+The repo is public, and the apps copy-sync it. There are no git-tag installs in CI. Run both commands on your own machine and commit the result:
 
     scripts/sync.sh v0.3.0 public/app-kit              # frontend/ into the static dir
     scripts/sync.sh --server v0.3.0 src/app-kit        # server/ into the source tree
